@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Activation Functions · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .fn-toggle { display:flex; flex-wrap:wrap; gap:6px; }
+  .fn-chip { display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--hairline-strong); font-family:var(--font-mono); font-size:11px; cursor:pointer; color:var(--text-2); user-select:none; }
+  .fn-chip .sw { width:10px; height:10px; border-radius:2px; }
+  .fn-chip.off { opacity:0.4; }
+  .gallery { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .gcard { border:1px solid var(--hairline); background:var(--panel); padding:0; }
+  .gcard .gh { display:flex; align-items:center; gap:8px; padding:10px 14px; border-bottom:1px solid var(--hairline); font-family:var(--font-mono); font-size:12px; }
+  .gcard .gb { padding:14px; }
+  .gcard canvas { width:100%; height:80px; display:block; background:var(--void); border:1px solid var(--hairline); }
+  .gcard .formula { font-family:var(--font-mono); font-size:11px; color:var(--accent); margin:10px 0 8px; }
+  .gcard .props { font-size:11.5px; color:var(--text-2); line-height:1.6; }
+  .gcard .props b { color:var(--text); font-weight:500; }
+  .tag-good { color:var(--ok); } .tag-bad { color:var(--fail); }
+  @media (max-width:900px){ .gallery{grid-template-columns:1fr 1fr;} }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M04 Activations">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M04 / FOUNDATIONS</div>
+      <h1>Activation functions. <em>The kink</em><br>that makes networks <em>non-linear</em>.</h1>
+      <p class="lede">Stack a hundred linear layers and you still have… one linear layer. The activation is the small non-linear bend applied after each layer that lets a network represent curves, corners, and concepts. Different bends have very different consequences for training.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 04.01</b> · ACTIVATION.PLOT</span>
+        <span><b>FUNCTIONS</b> · 9</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- WHY -->
+      <div class="callout mb-4" style="max-width:820px;">
+        <b>Why we need them →</b> A layer computes <span class="mono">y = Wx + b</span> — a straight line. Compose two: <span class="mono">W₂(W₁x+b₁)+b₂ = W'x+b'</span> — still a straight line. The activation <span class="mono" style="color:var(--accent)">σ(·)</span> inserts a non-linearity between layers, so <span class="mono">σ(W₂·σ(W₁x))</span> can bend. That single bend, repeated, is what gives deep nets their expressive power.
+      </div>
+
+      <!-- INTERACTIVE PLOT -->
+      <div class="section-title"><span class="num">// 01</span><h2>The interactive plotter · function &amp; its gradient</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> f(x) <span class="muted" style="margin-left:6px;">solid</span> &nbsp;·&nbsp; f′(x) <span class="muted">dashed</span> <span class="right small mono muted">drag the input marker</span></div>
+            <div class="panel-body">
+              <canvas id="plot" width="720" height="380" style="width:100%;height:380px;background:#06080c;cursor:ew-resize;"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> SHOW</div>
+            <div class="panel-body">
+              <div class="fn-toggle" id="fnToggle"></div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">INPUT x</span>
+                <input type="range" min="-6" max="6" step="0.05" value="1" id="xMark">
+                <span class="value" id="xMarkV">1.00</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">GRADIENT</span>
+                <div class="toggle-group" id="derivTog"><button class="on" data-v="on">SHOW</button><button data-v="off">HIDE</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> READOUT @ x = <span id="xRead" style="margin-left:4px;color:var(--accent);">1.00</span></div>
+            <div class="panel-body" style="padding:0;">
+              <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11.5px;" id="readTable"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THE TWO BIG PROBLEMS -->
+      <div class="section-title"><span class="num">// 02</span><h2>Two failure modes to recognize</h2><div class="line"></div></div>
+      <div class="grid-2" style="grid-template-columns:1fr 1fr;gap:24px;">
+        <div class="panel">
+          <div class="panel-head"><span class="dot" style="background:var(--fail);box-shadow:0 0 6px var(--fail);"></span> VANISHING GRADIENT</div>
+          <div class="panel-body small" style="line-height:1.7;">
+            <p style="margin-top:0;">Look at <b style="color:var(--accent)">sigmoid</b> / <b style="color:var(--accent)">tanh</b> in the plotter. When |x| is large, the curve flattens and its gradient (dashed) → 0. In a deep net, gradients are <em>multiplied</em> layer by layer during backprop. Many near-zero gradients multiply to <b>nothing</b>, and early layers stop learning.</p>
+            <p style="margin-bottom:0;">This is exactly why <b>ReLU</b> (gradient = 1 for x&gt;0) replaced sigmoid as the default — its gradient doesn't shrink for positive inputs.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="dot" style="background:var(--fail);box-shadow:0 0 6px var(--fail);"></span> DYING ReLU</div>
+          <div class="panel-body small" style="line-height:1.7;">
+            <p style="margin-top:0;">ReLU's gradient is <b>0</b> for x &lt; 0. If a neuron's weights push it permanently negative, its gradient is always zero — it never updates again. It's <b style="color:var(--fail)">dead</b>.</p>
+            <p style="margin-bottom:0;"><b>Leaky ReLU</b> / <b>ELU</b> / <b>GELU</b> fix this by giving a small non-zero slope (or smooth curve) for negative inputs, keeping a trickle of gradient alive.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- GALLERY -->
+      <div class="section-title"><span class="num">// 03</span><h2>The full gallery</h2><div class="line"></div></div>
+      <div class="gallery" id="gallery"></div>
+
+      <!-- SOFTMAX SPECIAL -->
+      <div class="section-title"><span class="num">// 04</span><h2>Softmax · the output-layer special case</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> LOGITS → PROBABILITIES</div>
+            <div class="panel-body">
+              <div id="softmaxBars"></div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">TEMPERATURE</span>
+                <input type="range" min="0.2" max="3" step="0.1" value="1" id="smTemp">
+                <span class="value" id="smTempV">1.0</span>
+              </div>
+              <button class="btn mt-2" id="smRand">⟳ RANDOM LOGITS</button>
+            </div>
+          </div>
+        </div>
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> WHY SOFTMAX IS DIFFERENT</div>
+            <div class="panel-body small" style="line-height:1.7;">
+              <p style="margin-top:0;">Every other activation works on <em>one number at a time</em>. Softmax works on a <em>whole vector</em>: it exponentiates each logit and normalizes so the outputs are positive and sum to 1 — a probability distribution over classes.</p>
+              <div class="panel" style="background:var(--void);"><div class="panel-body" style="text-align:center;font-family:var(--font-mono);font-size:14px;">softmax(z)<sub>i</sub> = e<sup>z<sub>i</sub>/τ</sup> / Σ<sub>j</sub> e<sup>z<sub>j</sub>/τ</sup></div></div>
+              <p style="margin-bottom:0;"><b>Temperature τ</b> controls confidence: low τ → sharp (winner takes all), high τ → flat (uncertain). It pairs with cross-entropy loss (see the <a href="loss.html" style="color:var(--accent);">Loss Functions</a> module) to train classifiers.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>Rule of thumb →</b> Hidden layers: start with <b>ReLU</b>; upgrade to <b>GELU</b>/<b>SiLU</b> for transformers and big models. Avoid sigmoid/tanh in deep hidden stacks (vanishing gradient). Output layer: <b>softmax</b> for multi-class, <b>sigmoid</b> for binary/multi-label, <b>none</b> (linear) for regression.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("activations", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; FOUNDATIONS &nbsp;/&nbsp; <b style='color:var(--accent)'>ACTIVATION FUNCTIONS</b>");</script>
+
+<script>
+/* ===== activation definitions ===== */
+function erf(x){ const t=1/(1+0.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
+const ACT = {
+  sigmoid: { name:"Sigmoid", color:"#ffd400", f:x=>1/(1+Math.exp(-x)), d:x=>{const s=1/(1+Math.exp(-x));return s*(1-s);},
+    formula:"σ(x) = 1 / (1 + e⁻ˣ)", range:"(0, 1)",
+    props:"Smooth, bounded. <b class='tag-bad'>Saturates</b> → vanishing gradient. Output not zero-centered. Mostly retired from hidden layers; lives on as a binary-output gate." },
+  tanh: { name:"Tanh", color:"#4dd0ff", f:x=>Math.tanh(x), d:x=>{const t=Math.tanh(x);return 1-t*t;},
+    formula:"tanh(x)", range:"(−1, 1)",
+    props:"Zero-centered (better than sigmoid) but <b class='tag-bad'>still saturates</b>. Common in older RNNs." },
+  relu: { name:"ReLU", color:"#2ee68b", f:x=>Math.max(0,x), d:x=>x>0?1:0,
+    formula:"max(0, x)", range:"[0, ∞)",
+    props:"<b class='tag-good'>The default.</b> Cheap, no positive-side saturation, sparse. Risk: <b class='tag-bad'>dying ReLU</b> for x&lt;0." },
+  leaky: { name:"Leaky ReLU", color:"#ff9d3a", f:x=>x>0?x:0.1*x, d:x=>x>0?1:0.1,
+    formula:"x>0 ? x : 0.1x", range:"(−∞, ∞)",
+    props:"Fixes dying ReLU with a small negative slope. <b class='tag-good'>Always some gradient.</b>" },
+  prelu: { name:"PReLU", color:"#ff6b9d", f:x=>x>0?x:0.25*x, d:x=>x>0?1:0.25,
+    formula:"x>0 ? x : ax (a learned)", range:"(−∞, ∞)",
+    props:"Like Leaky, but the negative slope <b>a</b> is a learned parameter." },
+  elu: { name:"ELU", color:"#b388ff", f:x=>x>0?x:1.0*(Math.exp(x)-1), d:x=>x>0?1:Math.exp(x),
+    formula:"x>0 ? x : α(eˣ−1)", range:"(−α, ∞)",
+    props:"Smooth negatives, pushes mean activation toward zero → <b class='tag-good'>faster convergence</b>. Costs an exp()." },
+  gelu: { name:"GELU", color:"#ff3366", f:x=>0.5*x*(1+erf(x/Math.SQRT2)), d:x=>0.5*(1+erf(x/Math.SQRT2)) + x*Math.exp(-x*x/2)/Math.sqrt(2*Math.PI),
+    formula:"x · Φ(x)", range:"(≈−0.17, ∞)",
+    props:"<b class='tag-good'>Default in transformers</b> (BERT, GPT, ViT). Smooth, lets small negatives pass probabilistically." },
+  silu: { name:"SiLU / Swish", color:"#7dd3fc", f:x=>x/(1+Math.exp(-x)), d:x=>{const s=1/(1+Math.exp(-x));return s+x*s*(1-s);},
+    formula:"x · σ(x)", range:"(≈−0.28, ∞)",
+    props:"Self-gated, smooth, non-monotonic. Strong in deep CNNs (EfficientNet) and modern LLMs." },
+  softplus: { name:"Softplus", color:"#9aa3b2", f:x=>Math.log(1+Math.exp(x)), d:x=>1/(1+Math.exp(-x)),
+    formula:"ln(1 + eˣ)", range:"(0, ∞)",
+    props:"A smooth ReLU. Its derivative is exactly the sigmoid. Rare in practice (slower, less sparse)." },
+};
+const KEYS = Object.keys(ACT);
+let shown = { sigmoid:true, tanh:true, relu:true, leaky:false, prelu:false, elu:false, gelu:true, silu:false, softplus:false };
+let xMark = 1, showDeriv = true;
+
+/* ===== main plot ===== */
+const plot = document.getElementById("plot");
+function drawPlot() {
+  const ctx = plot.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  plot.width = plot.offsetWidth*dpr; plot.height = plot.offsetHeight*dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W = plot.offsetWidth, Hh = plot.offsetHeight;
+  ctx.clearRect(0,0,W,Hh);
+  const xmin=-6, xmax=6, ymin=-2, ymax=2;
+  const X2s = x => (x-xmin)/(xmax-xmin)*W;
+  const Y2s = y => Hh - (y-ymin)/(ymax-ymin)*Hh;
+  // grid
+  ctx.strokeStyle="rgba(255,255,255,0.05)"; ctx.lineWidth=1;
+  for (let gx=xmin; gx<=xmax; gx++){ctx.beginPath();ctx.moveTo(X2s(gx),0);ctx.lineTo(X2s(gx),Hh);ctx.stroke();}
+  for (let gy=ymin; gy<=ymax; gy++){ctx.beginPath();ctx.moveTo(0,Y2s(gy));ctx.lineTo(W,Y2s(gy));ctx.stroke();}
+  // axes
+  ctx.strokeStyle="rgba(255,255,255,0.18)"; ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,Y2s(0));ctx.lineTo(W,Y2s(0));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(X2s(0),0);ctx.lineTo(X2s(0),Hh);ctx.stroke();
+  ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono";
+  ctx.fillText("0", X2s(0)+4, Y2s(0)-4); ctx.fillText("1", X2s(0)+4, Y2s(1)-2); ctx.fillText("-1", X2s(0)+4, Y2s(-1)-2);
+  // marker line
+  ctx.strokeStyle="rgba(255,51,102,0.6)"; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(X2s(xMark),0); ctx.lineTo(X2s(xMark),Hh); ctx.stroke(); ctx.setLineDash([]);
+  // curves
+  KEYS.forEach(k => {
+    if (!shown[k]) return;
+    const a = ACT[k];
+    ctx.strokeStyle=a.color; ctx.lineWidth=2; ctx.beginPath();
+    for (let px=0; px<=W; px++){ const x=xmin+(px/W)*(xmax-xmin); const y=a.f(x); px===0?ctx.moveTo(px,Y2s(y)):ctx.lineTo(px,Y2s(y)); }
+    ctx.stroke();
+    if (showDeriv){
+      ctx.strokeStyle=a.color; ctx.lineWidth=1; ctx.globalAlpha=0.55; ctx.setLineDash([3,3]); ctx.beginPath();
+      for (let px=0; px<=W; px++){ const x=xmin+(px/W)*(xmax-xmin); const y=a.d(x); px===0?ctx.moveTo(px,Y2s(y)):ctx.lineTo(px,Y2s(y)); }
+      ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+    // marker dot
+    const my = a.f(xMark);
+    ctx.fillStyle=a.color; ctx.beginPath(); ctx.arc(X2s(xMark), Y2s(my), 3.5, 0, 7); ctx.fill();
+  });
+  drawReadTable();
+}
+function drawReadTable() {
+  const tb = document.getElementById("readTable");
+  tb.innerHTML = "";
+  document.getElementById("xRead").textContent = xMark.toFixed(2);
+  KEYS.filter(k=>shown[k]).forEach(k => {
+    const a = ACT[k];
+    const tr = document.createElement("tr");
+    tr.style.borderBottom="1px solid var(--hairline)";
+    tr.innerHTML = `<td style="padding:7px 12px;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-right:6px;"></span>${a.name}</td>
+      <td style="padding:7px 12px;text-align:right;color:var(--text);">${a.f(xMark).toFixed(3)}</td>
+      <td style="padding:7px 12px;text-align:right;color:${Math.abs(a.d(xMark))<0.05?'var(--fail)':'var(--accent)'};">${a.d(xMark).toFixed(3)}</td>`;
+    tb.appendChild(tr);
+  });
+  const head = document.createElement("tr");
+  head.style.cssText="color:var(--text-3);";
+  head.innerHTML = `<td style="padding:6px 12px;font-size:10px;">FUNCTION</td><td style="padding:6px 12px;text-align:right;font-size:10px;">f(x)</td><td style="padding:6px 12px;text-align:right;font-size:10px;">f′(x)</td>`;
+  tb.insertBefore(head, tb.firstChild);
+}
+
+/* toggles */
+const ft = document.getElementById("fnToggle");
+KEYS.forEach(k => {
+  const a = ACT[k];
+  const chip = document.createElement("div");
+  chip.className = "fn-chip" + (shown[k]?"":" off");
+  chip.innerHTML = `<span class="sw" style="background:${a.color}"></span>${a.name}`;
+  chip.addEventListener("click", () => { shown[k]=!shown[k]; chip.classList.toggle("off",!shown[k]); drawPlot(); });
+  ft.appendChild(chip);
+});
+document.getElementById("xMark").addEventListener("input", e => { xMark=+e.target.value; document.getElementById("xMarkV").textContent=xMark.toFixed(2); drawPlot(); });
+document.querySelectorAll("#derivTog button").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("#derivTog button").forEach(x=>x.classList.remove("on"));b.classList.add("on");showDeriv=b.dataset.v==="on";drawPlot();}));
+let dragging=false;
+plot.addEventListener("mousedown",e=>{dragging=true;moveMark(e);});
+window.addEventListener("mousemove",e=>{if(dragging)moveMark(e);});
+window.addEventListener("mouseup",()=>dragging=false);
+function moveMark(e){const r=plot.getBoundingClientRect();const x=-6+((e.clientX-r.left)/r.width)*12;xMark=Math.max(-6,Math.min(6,x));document.getElementById("xMark").value=xMark;document.getElementById("xMarkV").textContent=xMark.toFixed(2);drawPlot();}
+
+/* gallery */
+const gal = document.getElementById("gallery");
+KEYS.forEach(k => {
+  const a = ACT[k];
+  const card = document.createElement("div");
+  card.className = "gcard";
+  card.innerHTML = `<div class="gh"><span class="sw" style="width:10px;height:10px;border-radius:2px;background:${a.color}"></span>${a.name}<span class="right" style="margin-left:auto;color:var(--text-3);font-size:10px;">${a.range}</span></div>
+    <div class="gb"><canvas width="200" height="80"></canvas><div class="formula">${a.formula}</div><div class="props">${a.props}</div></div>`;
+  gal.appendChild(card);
+  const cv = card.querySelector("canvas");
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio||1; cv.width=cv.offsetWidth*dpr; cv.height=80*dpr; ctx.scale(dpr,dpr);
+  const W=cv.offsetWidth, Hh=80, xmin=-5,xmax=5,ymin=-1.5,ymax=2;
+  const Y2s=y=>Hh-(y-ymin)/(ymax-ymin)*Hh;
+  ctx.strokeStyle="rgba(255,255,255,0.12)"; ctx.beginPath(); ctx.moveTo(0,Y2s(0));ctx.lineTo(W,Y2s(0));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,Hh);ctx.stroke();
+  ctx.strokeStyle=a.color; ctx.lineWidth=2; ctx.beginPath();
+  for(let px=0;px<=W;px++){const x=xmin+(px/W)*(xmax-xmin);const y=a.f(x);px===0?ctx.moveTo(px,Y2s(y)):ctx.lineTo(px,Y2s(y));}
+  ctx.stroke();
+  ctx.strokeStyle=a.color;ctx.globalAlpha=0.4;ctx.lineWidth=1;ctx.setLineDash([2,2]);ctx.beginPath();
+  for(let px=0;px<=W;px++){const x=xmin+(px/W)*(xmax-xmin);const y=a.d(x);px===0?ctx.moveTo(px,Y2s(y)):ctx.lineTo(px,Y2s(y));}
+  ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;
+});
+
+/* softmax */
+let logits = [2.0, 1.0, 0.5, -0.5, 0.2];
+let smTemp = 1;
+function renderSoftmax(){
+  const exps = logits.map(z=>Math.exp(z/smTemp));
+  const Z = exps.reduce((a,b)=>a+b,0);
+  const probs = exps.map(e=>e/Z);
+  const bars = document.getElementById("softmaxBars");
+  bars.innerHTML = "";
+  logits.forEach((z,i)=>{
+    const row = document.createElement("div");
+    row.style.cssText="display:flex;align-items:center;gap:10px;margin-bottom:7px;";
+    row.innerHTML = `<div class="mono" style="width:80px;font-size:11px;color:var(--text-2);">z<sub>${i}</sub>=${z.toFixed(2)}</div>
+      <div style="flex:1;height:16px;background:var(--raised);border:1px solid var(--hairline);"><i style="display:block;height:100%;width:${(probs[i]*100).toFixed(1)}%;background:var(--accent);"></i></div>
+      <div class="mono" style="width:48px;text-align:right;font-size:11px;color:var(--accent);">${(probs[i]*100).toFixed(1)}%</div>`;
+    bars.appendChild(row);
+  });
+}
+document.getElementById("smTemp").addEventListener("input",e=>{smTemp=+e.target.value;document.getElementById("smTempV").textContent=smTemp.toFixed(1);renderSoftmax();});
+document.getElementById("smRand").addEventListener("click",()=>{logits=Array.from({length:5},()=>+(Math.random()*4-1).toFixed(2));renderSoftmax();});
+
+drawPlot(); renderSoftmax();
+window.addEventListener("resize", drawPlot);
+</script>
+</body>
+</html>

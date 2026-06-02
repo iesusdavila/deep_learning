@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>DINO · Self-Supervised · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .proto-bars { display:flex; gap:4px; align-items:flex-end; height:120px; }
+  .proto-bars .bar { flex:1; background:var(--accent); transition:height .3s; min-height:1px; }
+  .crop-box { position:absolute; border:1.5px solid; pointer-events:none; }
+  .net-box { padding:12px 14px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:11px; text-align:center; }
+  .imgcell { border:1px solid var(--hairline); cursor:pointer; }
+  .imgcell.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M07 DINO">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M12 / ARCHITECTURES</div>
+      <h1>DINO. <em>Learning to see</em><br>with <em>no labels at all</em>.</h1>
+      <p class="lede">CLIP needs captions. Supervised models need class labels. DINO needs <em>nothing</em> — just images. It teaches a network to agree with itself across different crops of the same picture. The shocking result: attention maps that segment objects emerge on their own, never having been told what an object is.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 07.01</b> · SELF.DISTILLATION</span>
+        <span><b>PARADIGM</b> · STUDENT ⇄ TEACHER (EMA)</span>
+        <span><b>LABELS</b> · <span style="color:var(--magenta)">NONE</span></span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- THE LOOP -->
+      <div class="section-title"><span class="num">// 01</span><h2>The self-distillation loop</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> STUDENT LEARNS TO MATCH TEACHER · TEACHER = SLOW COPY OF STUDENT</div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;justify-content:space-around;gap:14px;flex-wrap:wrap;text-align:center;">
+                <div>
+                  <canvas id="loopImg" width="72" height="72" style="border:1px solid var(--hairline);image-rendering:pixelated;"></canvas>
+                  <div class="small muted mt-2 mono">one image,<br>two crops</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div class="net-box" style="border-color:var(--accent);color:var(--accent);">STUDENT g<sub>θs</sub><div style="color:var(--text-3);font-size:9px;">gradient ↓ updates this</div></div>
+                  <div class="net-box" style="border-color:var(--magenta);color:var(--magenta);">TEACHER g<sub>θt</sub><div style="color:var(--text-3);font-size:9px;">EMA, no gradient</div></div>
+                </div>
+                <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-2);line-height:1.9;text-align:left;">
+                  <div>1 · both see crops of same image</div>
+                  <div>2 · teacher output → <span style="color:var(--magenta)">center + sharpen</span></div>
+                  <div>3 · student matches it<br>&nbsp;&nbsp;&nbsp;<span style="color:var(--accent)">min −Σ P<sub>t</sub> log P<sub>s</sub></span></div>
+                  <div>4 · θ<sub>t</sub> ← λθ<sub>t</sub> + (1−λ)θ<sub>s</sub></div>
+                </div>
+              </div>
+              <div class="callout mt-6">
+                <b>Why doesn't it cheat?</b> If student and teacher were identical and free, both could output a constant and the loss would be zero — total <b>collapse</b>. DINO blocks this two ways: the teacher is a <em>momentum average</em> (it changes slowly, giving a stable target) and its outputs are <b>centered</b> (subtract a running mean) and <b>sharpened</b> (low temperature). Try breaking it in §3.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> EMA · TEACHER MOMENTUM λ</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">MOMENTUM λ</span>
+                <input type="range" min="0.9" max="0.9999" step="0.0001" value="0.996" id="ema">
+                <span class="value mono" id="emaV">0.9960</span>
+              </div>
+              <canvas id="emaChart" width="400" height="150" style="width:100%;height:150px;background:#000;"></canvas>
+              <div class="small muted mt-2">Student weights (yellow) jump around each step; teacher (magenta) is their slow trailing average. Higher λ → smoother, more stable target, slower to adapt.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MULTI-CROP -->
+      <div class="section-title"><span class="num">// 02</span><h2>Multi-crop · global views for the teacher, local for the student</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CROP STRATEGY <span class="right small mono muted">2 global + 6 local</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <div style="position:relative;display:inline-block;">
+                <canvas id="cropImg" width="260" height="260" style="border:1px solid var(--hairline);image-rendering:pixelated;"></canvas>
+                <div id="cropBoxes"></div>
+              </div>
+              <div class="flex gap-2 mt-4" style="justify-content:center;flex-wrap:wrap;" id="cropClassBtns"></div>
+            </div>
+          </div>
+        </div>
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> THE CROPS EACH NETWORK RECEIVES</div>
+            <div class="panel-body">
+              <div class="small mb-4"><b style="color:var(--accent)">Global crops</b> (large, 224²) go to <b style="color:var(--magenta)">teacher</b>. <b style="color:var(--accent)">Local crops</b> (small, 96²) go to <b style="color:var(--accent)">student</b>. The student must predict the teacher's "big picture" view from a tiny fragment — forcing it to learn part-to-whole relationships.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;" id="cropTiles"></div>
+              <div class="callout mt-6">
+                <b>The intuition →</b> A local crop of a cat's ear must produce the same representation as the global crop of the whole cat. To pull that off, the student learns "this ear belongs to this kind of object" — semantic structure, from geometry alone.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLLAPSE -->
+      <div class="section-title"><span class="num">// 03</span><h2>Avoiding collapse · centering &amp; sharpening</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> TEACHER OUTPUT CONTROLS</div>
+            <div class="panel-body">
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">CENTERING</span>
+                <div class="toggle-group" id="centerTog"><button class="on" data-v="on">ON</button><button data-v="off">OFF</button></div>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">TEACHER TEMP</span>
+                <input type="range" min="0.01" max="1.2" step="0.01" value="0.04" id="ttemp">
+                <span class="value" id="ttempV">0.04</span>
+              </div>
+              <div class="small muted mt-2">Low temp = sharp (one prototype dominates). High temp = flat (no signal). Centering subtracts a running mean so no single prototype can dominate <em>every</em> image.</div>
+              <div class="mt-4 mono" style="font-size:11px;line-height:1.8;">
+                <div>state · <span id="collapseState" style="color:var(--ok)">HEALTHY</span></div>
+                <div>output entropy · <span id="entropyV" style="color:var(--accent)">2.1</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-8">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> TEACHER OUTPUT DISTRIBUTION · over K=16 prototypes, for 4 different images</div>
+            <div class="panel-body">
+              <div class="grid-2" style="grid-template-columns:repeat(4,1fr);gap:16px;" id="collapsePanels"></div>
+              <div class="small muted mt-4" id="collapseNote">Healthy: each image peaks on a <em>different</em> prototype. Collapsed: every image peaks on the <em>same</em> one — the model learned nothing.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EMERGENT ATTENTION -->
+      <div class="section-title"><span class="num">// 04</span><h2>The payoff · emergent attention segmentation</h2><div class="line"></div></div>
+      <p class="small" style="max-width:760px;margin-bottom:18px;">DINO was never told where objects are. Yet if you look at the attention from the [CLS] token of a DINO-trained ViT, it lights up <em>exactly</em> on the foreground object — clean enough to use as an unsupervised segmentation mask. This is the famous, surprising result. Pick an image and inspect the heads.</p>
+      <div class="grid-12">
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> INPUT</div>
+            <div class="panel-body" style="text-align:center;">
+              <div id="attnImages" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">OVERLAY</span>
+                <input type="range" min="0" max="100" step="1" value="70" id="overlayAmt">
+                <span class="value" id="overlayAmtV">70%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-8">
+          <div class="panel">
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> [CLS] ATTENTION · per head <span class="right small mono muted">no labels were used</span></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;">
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">MEAN ATTENTION (SEGMENTATION)</div>
+                  <canvas id="attnMain" width="240" height="240" style="background:#000;image-rendering:pixelated;"></canvas>
+                </div>
+                <div style="flex:1;">
+                  <div class="small muted mb-2">INDIVIDUAL HEADS · each finds a different part</div>
+                  <div id="attnHeads" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPARISON -->
+      <div class="section-title"><span class="num">// 05</span><h2>Three ways to pretrain · pick your supervision</h2><div class="line"></div></div>
+      <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;background:var(--panel);border:1px solid var(--hairline);">
+        <thead><tr style="border-bottom:1px solid var(--hairline);">
+          <th style="padding:12px 16px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;letter-spacing:0.08em;">METHOD</th>
+          <th style="padding:12px 16px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;letter-spacing:0.08em;">SUPERVISION</th>
+          <th style="padding:12px 16px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;letter-spacing:0.08em;">SIGNAL</th>
+          <th style="padding:12px 16px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;letter-spacing:0.08em;">EMERGES</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--accent);">Supervised (ResNet/ViT)</td><td style="padding:11px 16px;">class labels</td><td style="padding:11px 16px;color:var(--text-2);">"this is class k"</td><td style="padding:11px 16px;color:var(--text-2);">class-discriminative features</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--accent);">CLIP</td><td style="padding:11px 16px;">image–text pairs</td><td style="padding:11px 16px;color:var(--text-2);">"this image ↔ this caption"</td><td style="padding:11px 16px;color:var(--text-2);">open-vocabulary, zero-shot</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--magenta);">DINO</td><td style="padding:11px 16px;color:var(--magenta);">none (self)</td><td style="padding:11px 16px;color:var(--text-2);">"my crops should agree"</td><td style="padding:11px 16px;color:var(--text-2);">object segmentation, strong kNN</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout mt-8">
+        <b>Where this leads →</b> DINOv2 scaled this recipe to produce general-purpose visual features that work — frozen, no fine-tuning — for depth, segmentation, retrieval, and classification. Self-supervision is now the default way to pretrain a vision backbone when labels are scarce.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script src="../assets/imagery.js"></script>
+<script>CORTEX.mount("dino", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; ARCHITECTURES &nbsp;/&nbsp; <b style='color:var(--accent)'>DINO</b>");</script>
+
+<script>
+const { CLASSES, draw, rng } = CVImagery;
+draw(document.getElementById("loopImg").getContext("2d"), "cat", 72, 0, 0, 5);
+
+/* ===== §1 EMA chart ===== */
+let lambda = 0.996;
+function drawEma() {
+  const cv = document.getElementById("emaChart");
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const W = cv.offsetWidth, H = cv.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+  // simulate noisy student walk + EMA teacher
+  const r = rng(99);
+  let student = 0.5, teacher = 0.5;
+  const sPts = [], tPts = [];
+  for (let i = 0; i < 120; i++) {
+    student += (r() - 0.5) * 0.12;
+    student = Math.max(0.1, Math.min(0.9, student));
+    teacher = lambda * teacher + (1 - lambda) * student;
+    sPts.push(student); tPts.push(teacher);
+  }
+  function line(pts, color, w) {
+    ctx.strokeStyle = color; ctx.lineWidth = w;
+    ctx.beginPath();
+    pts.forEach((v, i) => { const x = i/(pts.length-1)*W, y = H - v*H; i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+  }
+  line(sPts, "rgba(255,212,0,0.5)", 1);
+  line(tPts, "#ff3366", 2);
+}
+document.getElementById("ema").addEventListener("input", e => {
+  lambda = +e.target.value; document.getElementById("emaV").textContent = lambda.toFixed(4); drawEma();
+});
+
+/* ===== §2 multi-crop ===== */
+let cropCls = "cat", cropSeed = 11;
+function renderCrops() {
+  draw(document.getElementById("cropImg").getContext("2d"), cropCls, 260, 0, 0, cropSeed);
+  const boxes = document.getElementById("cropBoxes");
+  boxes.innerHTML = "";
+  const crops = [
+    { x: 0.05, y: 0.05, s: 0.7, type: "global" },
+    { x: 0.28, y: 0.25, s: 0.65, type: "global" },
+    { x: 0.4, y: 0.1, s: 0.28, type: "local" },
+    { x: 0.15, y: 0.5, s: 0.25, type: "local" },
+    { x: 0.6, y: 0.55, s: 0.3, type: "local" },
+    { x: 0.05, y: 0.3, s: 0.22, type: "local" },
+  ];
+  crops.forEach(c => {
+    const d = document.createElement("div");
+    d.className = "crop-box";
+    d.style.left = (c.x*260) + "px"; d.style.top = (c.y*260) + "px";
+    d.style.width = (c.s*260) + "px"; d.style.height = (c.s*260) + "px";
+    d.style.borderColor = c.type === "global" ? "var(--magenta)" : "var(--accent)";
+    if (c.type === "local") d.style.borderStyle = "dashed";
+    boxes.appendChild(d);
+  });
+  // crop tiles
+  const tiles = document.getElementById("cropTiles");
+  tiles.innerHTML = "";
+  [["global",100],["global",100],["local",64],["local",64],["local",64],["local",64]].forEach(([t,sz], i) => {
+    const wrap = document.createElement("div"); wrap.style.cssText = "text-align:center;";
+    const cv = document.createElement("canvas"); cv.width = sz; cv.height = sz;
+    cv.style.cssText = `border:1px ${t==='local'?'dashed':'solid'} ${t==='global'?'var(--magenta)':'var(--accent)'};image-rendering:pixelated;display:block;`;
+    // draw a cropped region by scaling/translating
+    const ctx = cv.getContext("2d");
+    const scale = t === "global" ? 1.3 : 2.6;
+    ctx.save(); ctx.translate(-sz*(scale-1)/2 - (i*7%20), -sz*(scale-1)/2 - (i*11%20));
+    ctx.scale(scale, scale);
+    draw(ctx, cropCls, sz, 0, 0, cropSeed);
+    ctx.restore();
+    wrap.appendChild(cv);
+    const lbl = document.createElement("div"); lbl.style.cssText = "font-family:var(--font-mono);font-size:9px;color:var(--text-3);margin-top:3px;";
+    lbl.textContent = t === "global" ? "GLOBAL→teacher" : "local→student";
+    wrap.appendChild(lbl);
+    tiles.appendChild(wrap);
+  });
+}
+const ccb = document.getElementById("cropClassBtns");
+CLASSES.forEach((c, i) => {
+  const b = document.createElement("button"); b.className = "btn" + (c===cropCls?" primary":""); b.textContent = c.toUpperCase();
+  b.addEventListener("click", () => { cropCls = c; cropSeed = 11 + i; ccb.querySelectorAll("button").forEach(x=>x.classList.remove("primary")); b.classList.add("primary"); renderCrops(); });
+  ccb.appendChild(b);
+});
+
+/* ===== §3 collapse ===== */
+let centering = true, ttemp = 0.04;
+const K = 16;
+function softmaxTemp(logits, t, center) {
+  let l = logits.slice();
+  if (center) { const m = l.reduce((a,b)=>a+b,0)/l.length; l = l.map(x => x - m); }
+  const mx = Math.max(...l);
+  const e = l.map(x => Math.exp((x - mx) / t));
+  const Z = e.reduce((a,b)=>a+b,0);
+  return e.map(x => x / Z);
+}
+function renderCollapse() {
+  const panels = document.getElementById("collapsePanels");
+  panels.innerHTML = "";
+  const imgs = ["cat","dog","car","bird"];
+  let totalEntropy = 0, peakProtos = [];
+  imgs.forEach((cls, idx) => {
+    // base logits: distinct per image when healthy
+    const r = rng(cls.length*53 + idx*17);
+    const logits = [];
+    for (let k = 0; k < K; k++) {
+      // each image has a "preferred" prototype region; without centering a global bias dominates
+      const pref = Math.exp(-Math.pow(k - (idx*4+2), 2) / 6) * 2.0;
+      const globalBias = Math.exp(-Math.pow(k - 7, 2) / 4) * 1.6; // the prototype that would dominate everything
+      logits.push(pref + globalBias + (r()-0.5)*0.3);
+    }
+    const probs = softmaxTemp(logits, ttemp, centering);
+    const ent = -probs.reduce((a,p)=> a + (p>1e-9 ? p*Math.log(p) : 0), 0);
+    totalEntropy += ent;
+    peakProtos.push(probs.indexOf(Math.max(...probs)));
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "text-align:center;";
+    const cv = document.createElement("canvas"); cv.width = 40; cv.height = 40;
+    cv.style.cssText = "image-rendering:pixelated;border:1px solid var(--hairline);margin-bottom:6px;";
+    draw(cv.getContext("2d"), cls, 40, 0, 0, idx*9+1);
+    wrap.appendChild(cv);
+    const bars = document.createElement("div");
+    bars.className = "proto-bars";
+    const mx = Math.max(...probs);
+    probs.forEach(p => {
+      const b = document.createElement("div"); b.className = "bar";
+      b.style.height = (p/mx*100) + "%";
+      b.style.background = p === mx ? "var(--accent)" : "rgba(255,212,0,0.3)";
+      bars.appendChild(b);
+    });
+    wrap.appendChild(bars);
+    panels.appendChild(wrap);
+  });
+  const avgEnt = totalEntropy / imgs.length;
+  document.getElementById("entropyV").textContent = avgEnt.toFixed(2);
+  // collapse detection
+  const allSame = peakProtos.every(p => p === peakProtos[0]);
+  const uniform = avgEnt > 2.4;
+  const stateEl = document.getElementById("collapseState");
+  if (allSame && !uniform) { stateEl.textContent = "COLLAPSED (mode)"; stateEl.style.color = "var(--fail)"; }
+  else if (uniform) { stateEl.textContent = "COLLAPSED (uniform)"; stateEl.style.color = "var(--fail)"; }
+  else { stateEl.textContent = "HEALTHY"; stateEl.style.color = "var(--ok)"; }
+}
+document.querySelectorAll("#centerTog button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#centerTog button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); centering = b.dataset.v === "on"; renderCollapse();
+}));
+document.getElementById("ttemp").addEventListener("input", e => {
+  ttemp = +e.target.value; document.getElementById("ttempV").textContent = ttemp.toFixed(2); renderCollapse();
+});
+
+/* ===== §4 emergent attention ===== */
+const attnSamples = [
+  { cls: "cat", seed: 31 }, { cls: "dog", seed: 32 }, { cls: "car", seed: 33 },
+  { cls: "bird", seed: 34 }, { cls: "tree", seed: 35 }, { cls: "flower", seed: 36 },
+];
+let attnSel = 0, overlayAmt = 0.7;
+const ATTN_SZ = 240;
+
+function computeSaliency(cls, seed, headBias) {
+  // render image offscreen, foreground = distance from corner background color
+  const off = document.createElement("canvas"); off.width = 64; off.height = 64;
+  const octx = off.getContext("2d");
+  draw(octx, cls, 64, 0, 0, seed);
+  const data = octx.getImageData(0, 0, 64, 64).data;
+  const bg = [data[0], data[1], data[2]];
+  const sal = new Float32Array(64*64);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+    const i = (y*64+x)*4;
+    let d = Math.abs(data[i]-bg[0]) + Math.abs(data[i+1]-bg[1]) + Math.abs(data[i+2]-bg[2]);
+    d = Math.min(1, d / 200);
+    // head bias: 0 center, 1 top, 2 edges/high-freq
+    if (headBias === 1) d *= Math.exp(-Math.pow(y-22,2)/300); // upper part (head)
+    else if (headBias === 2) {
+      // edges
+      const r2 = (data[((y)*64+Math.min(63,x+1))*4] - data[i]);
+      d = Math.min(1, Math.abs(r2)/80) * (d>0.1?1:0.2);
+    } else if (headBias === 3) d *= Math.exp(-Math.pow(x-32,2)/400); // central column
+    sal[y*64+x] = d;
+  }
+  // blur a little
+  const out = new Float32Array(64*64);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
+    let s=0,n=0;
+    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){const yy=y+dy,xx=x+dx;if(yy<0||yy>=64||xx<0||xx>=64)continue;s+=sal[yy*64+xx];n++;}
+    out[y*64+x]=s/n;
+  }
+  return out;
+}
+
+function paintAttn(canvas, cls, seed, headBias, withImage) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  if (withImage) {
+    draw(ctx, cls, W, 0, 0, seed);
+  } else {
+    ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+  }
+  const sal = computeSaliency(cls, seed, headBias);
+  let mx = 1e-6; for (let i=0;i<sal.length;i++) if (sal[i]>mx) mx=sal[i];
+  const id = ctx.getImageData(0,0,W,H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*64/W), sy = Math.floor(y*64/H);
+    const v = sal[sy*64+sx]/mx;
+    const i = (y*W+x)*4;
+    if (withImage) {
+      // blend heatmap over image
+      const a = overlayAmt * v;
+      id.data[i]   = id.data[i]*(1-a) + 255*a;
+      id.data[i+1] = id.data[i+1]*(1-a) + 212*a;
+      id.data[i+2] = id.data[i+2]*(1-a) + 0;
+    } else {
+      id.data[i] = 255*v; id.data[i+1] = 212*v; id.data[i+2] = 0; id.data[i+3]=255;
+    }
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function renderAttn() {
+  const s = attnSamples[attnSel];
+  paintAttn(document.getElementById("attnMain"), s.cls, s.seed, 0, true);
+  const heads = document.getElementById("attnHeads");
+  heads.innerHTML = "";
+  [0,1,2,3,2,1].forEach((bias, h) => {
+    const wrap = document.createElement("div"); wrap.style.cssText="text-align:center;";
+    const cv = document.createElement("canvas"); cv.width = 80; cv.height = 80;
+    cv.style.cssText = "width:100%;aspect-ratio:1;background:#000;image-rendering:pixelated;border:1px solid var(--hairline);";
+    paintAttn(cv, s.cls, s.seed + h, bias, false);
+    wrap.appendChild(cv);
+    const lbl = document.createElement("div"); lbl.style.cssText="font-family:var(--font-mono);font-size:9px;color:var(--text-3);margin-top:2px;";
+    lbl.textContent = "head " + h;
+    wrap.appendChild(lbl);
+    heads.appendChild(wrap);
+  });
+}
+function renderAttnImages() {
+  const wrap = document.getElementById("attnImages");
+  wrap.innerHTML = "";
+  attnSamples.forEach((s, idx) => {
+    const cv = document.createElement("canvas"); cv.width = 80; cv.height = 80;
+    cv.className = "imgcell" + (idx===attnSel?" sel":"");
+    cv.style.cssText += "width:100%;aspect-ratio:1;image-rendering:pixelated;";
+    draw(cv.getContext("2d"), s.cls, 80, 0, 0, s.seed);
+    cv.addEventListener("click", () => { attnSel = idx; renderAttnImages(); renderAttn(); });
+    wrap.appendChild(cv);
+  });
+}
+document.getElementById("overlayAmt").addEventListener("input", e => {
+  overlayAmt = +e.target.value/100; document.getElementById("overlayAmtV").textContent = e.target.value + "%"; renderAttn();
+});
+
+/* init */
+drawEma(); renderCrops(); renderCollapse(); renderAttnImages(); renderAttn();
+window.addEventListener("resize", drawEma);
+</script>
+</body>
+</html>

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Attention & Transformers · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .token { width:46px; height:46px; border:1px solid var(--hairline); display:grid; place-items:center; font-family:var(--font-mono); font-size:11px; background:var(--raised); }
+  .step-stage { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .qkv-box { padding:10px 12px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:11px; text-align:center; }
+  .pipe-stage { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .pipe-node { padding:10px 12px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:10.5px; text-align:center; color:var(--text-2); min-width:84px; }
+  .pipe-node.accent { border-color:var(--accent); color:var(--accent); }
+  .pipe-node.magenta { border-color:var(--magenta); color:var(--magenta); }
+  .pipe-arrow { color:var(--accent); font-family:var(--font-mono); }
+  .axis-label { font-family:var(--font-mono); font-size:10px; color:var(--text-3); letter-spacing:0.1em; }
+  .block-diagram { display:flex; flex-direction:column; gap:0; align-items:center; }
+  .block-diagram .stage { width:100%; max-width:360px; padding:11px 14px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:11px; text-align:center; position:relative; }
+  .block-diagram .stage.attn { border-color:var(--accent); color:var(--accent); }
+  .block-diagram .stage.ffn { border-color:var(--magenta); color:var(--magenta); }
+  .block-diagram .res { font-family:var(--font-mono); font-size:10px; color:var(--text-3); padding:4px 0; }
+  .block-diagram .arr { width:1px; height:12px; background:var(--hairline-strong); }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M05 Attention">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M10 / ARCHITECTURES</div>
+      <h1>Attention. <em>How a model decides</em><br>what to look at.</h1>
+      <p class="lede">Convolutions look at fixed neighbourhoods. Attention lets <em>every</em> element look at every other and weigh how much each one matters — dynamically, per input. It started in language, took over NLP, then ate computer vision. Let's build the intuition from the ground up, then make it interactive.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 05.01</b> · SELF.ATTENTION</span>
+        <span><b>ORIGIN</b> · "ATTENTION IS ALL YOU NEED" (2017)</span>
+        <span><b>VISION</b> · ViT (2020)</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- §1 WHY -->
+      <div class="section-title"><span class="num">// 01</span><h2>Background · why attention exists</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> THE PROBLEM IT SOLVES</div>
+            <div class="panel-body small" style="line-height:1.75;">
+              <p style="margin-top:0;">Before 2017, sequence models were <b>recurrent</b> (RNNs, LSTMs): they read one token at a time, carrying a hidden state forward. Two problems. <b style="color:var(--magenta)">(1) Distance:</b> relating word 1 to word 100 means threading information through 99 steps — signal decays. <b style="color:var(--magenta)">(2) Sequential:</b> you can't parallelize; step <em>t</em> needs step <em>t−1</em>.</p>
+              <p>The transformer threw recurrence away. Its claim: you don't need to walk the sequence — just let every element directly query every other in <em>one</em> parallel operation. The mechanism that does this is <b style="color:var(--accent)">self-attention</b>. Distance becomes irrelevant (token 1 and token 100 are one hop apart) and the whole thing is a few big matrix multiplies, perfect for GPUs.</p>
+              <p style="margin-bottom:0;">Vision borrowed it in 2020 (the Vision Transformer): chop an image into patches, treat each patch like a "word", and run the exact same machinery. No convolutions required.</p>
+            </div>
+          </div>
+        </div>
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CONVOLUTION vs ATTENTION</div>
+            <div class="panel-body">
+              <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11px;">
+                <tr style="border-bottom:1px solid var(--hairline);"><td style="padding:8px 6px;color:var(--text-3);">receptive field</td><td style="padding:8px 6px;color:var(--text-2);">local (k×k)</td><td style="padding:8px 6px;color:var(--accent);">global (all)</td></tr>
+                <tr style="border-bottom:1px solid var(--hairline);"><td style="padding:8px 6px;color:var(--text-3);">weights</td><td style="padding:8px 6px;color:var(--text-2);">fixed kernel</td><td style="padding:8px 6px;color:var(--accent);">data-dependent</td></tr>
+                <tr style="border-bottom:1px solid var(--hairline);"><td style="padding:8px 6px;color:var(--text-3);">long-range</td><td style="padding:8px 6px;color:var(--text-2);">needs depth</td><td style="padding:8px 6px;color:var(--accent);">1 layer</td></tr>
+                <tr><td style="padding:8px 6px;color:var(--text-3);">cost</td><td style="padding:8px 6px;color:var(--text-2);">O(n)</td><td style="padding:8px 6px;color:var(--magenta);">O(n²)</td></tr>
+              </table>
+              <div class="small muted mt-4">Attention's superpower (everything sees everything) is also its cost: the N×N attention matrix grows quadratically with the number of tokens.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- §2 QKV ANATOMY -->
+      <div class="section-title"><span class="num">// 02</span><h2>Anatomy · queries, keys &amp; values</h2><div class="line"></div></div>
+      <p class="small" style="max-width:780px;margin-bottom:18px;">The whole mechanism is a soft, learnable dictionary lookup. Every token emits three vectors via three learned projection matrices: a <b style="color:var(--accent)">Query</b> ("what am I looking for?"), a <b style="color:var(--cyan)">Key</b> ("what do I offer?"), and a <b style="color:var(--magenta)">Value</b> ("what I'll actually pass on"). A token's output is a weighted blend of everyone's Values, where the weights come from how well its Query matches each Key.</p>
+
+      <div class="grid-12">
+        <div class="span-12">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> SCALED DOT-PRODUCT ATTENTION · one query, step by step <span class="right" id="qkvStepLabel">step 1 / 5</span></div>
+            <div class="panel-body">
+              <div class="step-stage" id="qkvSteps"></div>
+              <div class="mt-6" style="display:flex;gap:12px;justify-content:center;">
+                <button class="btn" id="qkvPrev">◀ PREV</button>
+                <button class="btn primary" id="qkvPlay">▶ AUTO</button>
+                <button class="btn" id="qkvNext">NEXT ▶</button>
+              </div>
+              <div class="panel mt-6" style="background:var(--void);">
+                <div class="panel-body" style="text-align:center;font-family:var(--font-mono);font-size:15px;line-height:2.2;">
+                  Attention(Q, K, V) = <span style="color:var(--accent)">softmax</span>( <span style="color:var(--accent)">Q</span>·<span style="color:var(--cyan)">Kᵀ</span> / √d<sub>k</sub> ) · <span style="color:var(--magenta)">V</span>
+                </div>
+              </div>
+              <div class="small muted mt-4" id="qkvCaption" style="max-width:760px;">Walk through how one token's output is computed.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- §3 ViT PIPELINE -->
+      <div class="section-title"><span class="num">// 03</span><h2>Vision Transformer · turning an image into tokens</h2><div class="line"></div></div>
+      <div class="panel">
+        <div class="panel-head"><span class="dot"></span> THE ViT PIPELINE · image → patches → tokens → blocks → class</div>
+        <div class="panel-body">
+          <div class="pipe-stage" style="justify-content:center;">
+            <div class="pipe-node"><canvas id="vitImg" width="56" height="56" style="image-rendering:pixelated;"></canvas><div style="margin-top:4px;">image<br>224²×3</div></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node accent">patchify<br><span style="color:var(--text-3)">16×16 grid</span></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node">linear<br>embed<br><span style="color:var(--text-3)">→ 768-D</span></div>
+            <span class="pipe-arrow">+</span>
+            <div class="pipe-node">positional<br>embedding<br><span style="color:var(--text-3)">"where"</span></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node magenta">prepend<br>[CLS]<br><span style="color:var(--text-3)">summary</span></div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node accent">×N transformer<br>blocks</div>
+            <span class="pipe-arrow">→</span>
+            <div class="pipe-node">[CLS] →<br>classifier</div>
+          </div>
+          <div class="grid-2 mt-6" style="grid-template-columns:1fr 1fr;gap:24px;">
+            <div class="small" style="line-height:1.7;">
+              <p style="margin-top:0;"><b style="color:var(--accent)">Patchify + embed:</b> a 224² image becomes a 14×14 grid of 16×16 patches → 196 patches. Each patch is flattened and linearly projected to a 768-D vector. Now it's a sequence of 196 "tokens", just like words.</p>
+              <p style="margin-bottom:0;"><b style="color:var(--accent)">Positional embedding:</b> attention is order-blind — shuffle the patches and it can't tell. So we <em>add</em> a learned position vector to each token, encoding where it sat in the grid.</p>
+            </div>
+            <div class="small" style="line-height:1.7;">
+              <p style="margin-top:0;"><b style="color:var(--magenta)">[CLS] token:</b> a special extra token is prepended. It attends to all patches across every layer and, at the end, its vector is the image's summary — fed to a tiny classifier head. (This is also the token whose attention map DINO visualizes.)</p>
+              <p style="margin-bottom:0;"><b style="color:var(--accent)">N blocks:</b> stack the transformer block 12–32 times. Early blocks mix local patches; deep blocks relate far-apart regions into object-level meaning.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- §4 INTERACTIVE MAP -->
+      <div class="section-title"><span class="num">// 04</span><h2>Interactive · hover a patch, watch it attend</h2><div class="line"></div></div>
+      <p class="small" style="max-width:780px;margin-bottom:18px;">Now make it concrete. Below is a patchified image. Hover any patch — that patch becomes the <b style="color:var(--accent)">query</b>. Lines shoot to the patches it attends to most; the heatmap shows the full distribution; the big matrix is every patch's attention to every other (one row per query).</p>
+      <div class="grid-12">
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> INPUT · PATCH GRID <span class="right small mono muted">hover any patch</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <div style="position:relative;display:inline-block;">
+                <canvas id="img" width="360" height="360" style="background:#000;display:block;image-rendering:pixelated;"></canvas>
+                <canvas id="overlay" width="360" height="360" style="position:absolute;left:0;top:0;cursor:crosshair;"></canvas>
+              </div>
+              <div class="mt-4 flex gap-2" style="justify-content:center;flex-wrap:wrap;">
+                <button class="btn" data-img="face">FACE</button>
+                <button class="btn" data-img="object">OBJECT</button>
+                <button class="btn" data-img="texture">TEXTURE</button>
+                <button class="btn" data-img="scene">SCENE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-7">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> ATTENTION FROM SELECTED QUERY</div>
+            <div class="panel-body">
+              <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+                <div style="text-align:center;">
+                  <div class="axis-label mb-2">FULL N×N MATRIX · ROW = QUERY</div>
+                  <canvas id="attMatrix" width="300" height="300" style="background:#000;display:block;"></canvas>
+                </div>
+                <div style="flex:1;min-width:150px;text-align:center;">
+                  <div class="axis-label mb-2">SELECTED PATCH → ATTENTION HEATMAP</div>
+                  <canvas id="attHeat" width="190" height="190" style="background:#000;display:block;margin:0 auto;"></canvas>
+                  <div class="small muted mt-3 mono" id="patchInfo">patch (0,0) · top-1 = (0,0) @ 0.12</div>
+                </div>
+              </div>
+              <div class="ctrl-row mt-4">
+                <span class="label">PATCH SIZE</span>
+                <input type="range" min="4" max="8" step="1" value="6" id="psize">
+                <span class="value" id="psizeV">6</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">VIEW HEAD</span>
+                <input type="range" min="0" max="3" step="1" value="0" id="headIdx">
+                <span class="value" id="headIdxV">0</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">TEMPERATURE</span>
+                <input type="range" min="0.3" max="2.5" step="0.1" value="1" id="temp">
+                <span class="value" id="tempV">1.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- §5 MULTIHEAD -->
+      <div class="section-title"><span class="num">// 05</span><h2>Multi-head · several attentions in parallel</h2><div class="line"></div></div>
+      <p class="small" style="max-width:780px;margin-bottom:18px;">One attention can only express one notion of "relevant". So transformers run several <b>heads</b> in parallel, each with its own Q/K/V projections, then concatenate. One head might track colour, another position, another contrast. Hover the image above; each head's response is shown below.</p>
+      <div class="grid-12" id="headRow"></div>
+
+      <!-- §6 FULL BLOCK -->
+      <div class="section-title"><span class="num">// 06</span><h2>The full transformer block · what wraps the attention</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-5">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> ONE BLOCK</div>
+            <div class="panel-body">
+              <div class="block-diagram">
+                <div class="stage">input tokens (+ residual stream)</div>
+                <div class="arr"></div>
+                <div class="res">LayerNorm</div>
+                <div class="arr"></div>
+                <div class="stage attn">Multi-Head Self-Attention</div>
+                <div class="res">⊕ residual add</div>
+                <div class="arr"></div>
+                <div class="res">LayerNorm</div>
+                <div class="arr"></div>
+                <div class="stage ffn">Feed-Forward MLP (4× wide)</div>
+                <div class="res">⊕ residual add</div>
+                <div class="arr"></div>
+                <div class="stage">output tokens → next block</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> WHAT EACH PIECE DOES</div>
+            <div class="panel-body">
+              <div style="display:grid;grid-template-columns:130px 1fr;gap:0;">
+                <div style="font-family:var(--font-mono);color:var(--accent);font-size:11px;padding:11px 0;border-bottom:1px solid var(--hairline);">SELF-ATTENTION</div>
+                <div style="padding:11px 0;border-bottom:1px solid var(--hairline);" class="small">Mixes information <em>across</em> tokens. The only place tokens talk to each other.</div>
+                <div style="font-family:var(--font-mono);color:var(--magenta);font-size:11px;padding:11px 0;border-bottom:1px solid var(--hairline);">FEED-FORWARD</div>
+                <div style="padding:11px 0;border-bottom:1px solid var(--hairline);" class="small">A 2-layer MLP applied to each token <em>independently</em>. Adds capacity and non-linearity; "thinks" about each token after it has gathered context.</div>
+                <div style="font-family:var(--font-mono);color:var(--text);font-size:11px;padding:11px 0;border-bottom:1px solid var(--hairline);">RESIDUAL ⊕</div>
+                <div style="padding:11px 0;border-bottom:1px solid var(--hairline);" class="small">Each sub-layer <em>adds</em> to the input rather than replacing it. Keeps a clean gradient highway so deep stacks train. (Same trick as ResNet.)</div>
+                <div style="font-family:var(--font-mono);color:var(--text);font-size:11px;padding:11px 0;">LAYERNORM</div>
+                <div style="padding:11px 0;" class="small">Normalizes each token's vector to stable scale before every sub-layer. Without it, the residual stream's magnitude explodes.</div>
+              </div>
+              <div class="callout mt-6">
+                <b>Put it together →</b> attention <em>moves</em> information between tokens; the MLP <em>processes</em> each token; residual + norm <em>keep it trainable</em>. Stack 12–32 of these and you have GPT, BERT, ViT, CLIP's text tower — all the same block, different data.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>The one-sentence version →</b> Self-attention is a content-based, fully-connected, data-dependent mixing layer — and that single idea, stacked deep, turned out to be a general-purpose architecture for sequences, images, audio, and code.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("attention", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; ARCHITECTURES &nbsp;/&nbsp; <b style='color:var(--accent)'>ATTENTION & TRANSFORMERS</b>");</script>
+
+<script>
+/* ===== §2 QKV step-by-step (3 tokens, fixed numbers) ===== */
+const TOK = ["the", "cat", "sat"];
+// fixed Q for query token "cat", fixed K/V for all
+const Q_cat = [0.9, 0.2];
+const Ks = [[0.4, 0.1], [0.8, 0.3], [0.2, 0.7]];
+const Vs = [[1.0, 0.0], [0.0, 1.0], [0.5, 0.5]];
+const dk = 2;
+let qkvStep = 0;
+const QKV_CAPTIONS = [
+  "Token \"cat\" emits a Query vector. The other tokens (including itself) each expose a Key and a Value.",
+  "Score each Key against the Query with a dot product: high score = 'this key is relevant to what I'm looking for'.",
+  "Divide by √dₖ to stop large dimensions from saturating the softmax, then softmax the scores into weights that sum to 1.",
+  "These weights say how much of each token's Value to take. Here 'cat' attends mostly to itself and a bit to 'sat'.",
+  "The output is the weighted sum of Values — a new representation of 'cat' that now contains context from the whole sentence.",
+];
+function renderQkv() {
+  const stage = document.getElementById("qkvSteps");
+  stage.innerHTML = "";
+  // compute
+  const scores = Ks.map(k => Q_cat[0]*k[0] + Q_cat[1]*k[1]);
+  const scaled = scores.map(s => s / Math.sqrt(dk));
+  const mx = Math.max(...scaled);
+  const exps = scaled.map(s => Math.exp(s - mx));
+  const Z = exps.reduce((a,b)=>a+b,0);
+  const weights = exps.map(e => e/Z);
+  const out = [0,0];
+  weights.forEach((w,i) => { out[0]+=w*Vs[i][0]; out[1]+=w*Vs[i][1]; });
+
+  function col(title, rows, highlight) {
+    const d = document.createElement("div");
+    d.style.cssText = `text-align:center;${highlight?'':'opacity:0.35;'}`;
+    d.innerHTML = `<div class="axis-label mb-2">${title}</div>` + rows;
+    return d;
+  }
+  // col 1: Q / K / V
+  stage.appendChild(col("EMIT Q · K · V",
+    `<div class="qkv-box" style="border-color:var(--accent);color:var(--accent);">Q(cat) = [${Q_cat.join(", ")}]</div>
+     <div style="margin-top:6px;">${TOK.map((t,i)=>`<div class="qkv-box" style="margin-top:4px;"><span style="color:var(--cyan)">K(${t})</span>=[${Ks[i].join(",")}] · <span style="color:var(--magenta)">V</span>=[${Vs[i].join(",")}]</div>`).join("")}</div>`,
+    qkvStep >= 0));
+  // col 2: scores
+  stage.appendChild(col("Q·Kᵀ SCORES",
+    TOK.map((t,i)=>`<div class="qkv-box" style="margin-top:4px;">Q·K(${t}) = <b style="color:var(--accent)">${scores[i].toFixed(2)}</b></div>`).join(""),
+    qkvStep >= 1));
+  // col 3: scaled + softmax
+  stage.appendChild(col("÷√dₖ → SOFTMAX",
+    TOK.map((t,i)=>`<div class="qkv-box" style="margin-top:4px;">w(${t}) = <b style="color:var(--accent)">${(weights[i]*100).toFixed(0)}%</b><div style="height:3px;background:var(--accent);width:${weights[i]*100}%;margin-top:3px;"></div></div>`).join(""),
+    qkvStep >= 2));
+  // col 4: weighted sum of V
+  stage.appendChild(col("Σ w·V → OUTPUT",
+    `${TOK.map((t,i)=>`<div class="qkv-box" style="margin-top:4px;opacity:${qkvStep>=3?1:0.4};">${(weights[i]).toFixed(2)} × [${Vs[i].join(",")}]</div>`).join("")}
+     <div class="qkv-box" style="margin-top:8px;border-color:var(--magenta);color:var(--magenta);opacity:${qkvStep>=4?1:0.3};">out = [${out[0].toFixed(2)}, ${out[1].toFixed(2)}]</div>`,
+    qkvStep >= 3));
+
+  document.getElementById("qkvStepLabel").textContent = `step ${qkvStep+1} / 5`;
+  document.getElementById("qkvCaption").textContent = QKV_CAPTIONS[qkvStep];
+}
+document.getElementById("qkvNext").addEventListener("click", () => { qkvStep = Math.min(4, qkvStep+1); renderQkv(); });
+document.getElementById("qkvPrev").addEventListener("click", () => { qkvStep = Math.max(0, qkvStep-1); renderQkv(); });
+let qkvAuto = null;
+document.getElementById("qkvPlay").addEventListener("click", e => {
+  if (qkvAuto) { clearInterval(qkvAuto); qkvAuto=null; e.target.textContent="▶ AUTO"; return; }
+  e.target.textContent = "❚❚ PAUSE";
+  qkvAuto = setInterval(() => { qkvStep = (qkvStep+1)%5; renderQkv(); }, 1500);
+});
+renderQkv();
+
+/* ===== §3 vit thumb ===== */
+(function(){
+  const ctx = document.getElementById("vitImg").getContext("2d");
+  ctx.fillStyle = "#1a1f2e"; ctx.fillRect(0,0,56,56);
+  ctx.fillStyle = "#c8a070"; ctx.beginPath(); ctx.ellipse(28,32,16,20,0,0,7); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(22,28,3,0,7); ctx.fill(); ctx.beginPath(); ctx.arc(34,28,3,0,7); ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,0.25)"; ctx.lineWidth=1;
+  for (let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(i*14,0);ctx.lineTo(i*14,56);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*14);ctx.lineTo(56,i*14);ctx.stroke();}
+})();
+
+/* ===== §4/§5 interactive attention (proven logic) ===== */
+const IMG_SIZE = 360;
+let P = 6, imgData = null, patchVals = [];
+let heads = 4, headIdx = 0, temp = 1;
+let hoverI = 0, hoverJ = 0;
+
+function makeImage(kind) {
+  const cv = document.getElementById("img");
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,IMG_SIZE,IMG_SIZE);
+  if (kind === "face") {
+    const g = ctx.createRadialGradient(IMG_SIZE/2,IMG_SIZE/2,40,IMG_SIZE/2,IMG_SIZE/2,IMG_SIZE/2);
+    g.addColorStop(0,"#3a2a1a"); g.addColorStop(1,"#0a0a0a"); ctx.fillStyle=g; ctx.fillRect(0,0,IMG_SIZE,IMG_SIZE);
+    ctx.fillStyle="#c8a070"; ctx.beginPath(); ctx.ellipse(IMG_SIZE/2,IMG_SIZE/2+18,100,128,0,0,7); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.beginPath(); ctx.ellipse(IMG_SIZE/2-34,IMG_SIZE/2-8,15,9,0,0,7); ctx.fill(); ctx.ellipse(IMG_SIZE/2+34,IMG_SIZE/2-8,15,9,0,0,7); ctx.fill();
+    ctx.fillStyle="#202020"; ctx.beginPath(); ctx.arc(IMG_SIZE/2-34,IMG_SIZE/2-8,5,0,7); ctx.fill(); ctx.arc(IMG_SIZE/2+34,IMG_SIZE/2-8,5,0,7); ctx.fill();
+    ctx.strokeStyle="#8a4040"; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(IMG_SIZE/2,IMG_SIZE/2+46,28,0.2,Math.PI-0.2); ctx.stroke();
+  } else if (kind === "object") {
+    ctx.fillStyle="#1a2030"; ctx.fillRect(0,0,IMG_SIZE,IMG_SIZE);
+    ctx.fillStyle="#666"; ctx.fillRect(0,262,IMG_SIZE,98);
+    const g=ctx.createRadialGradient(130,205,5,130,205,75); g.addColorStop(0,"#ffd400"); g.addColorStop(1,"#664400");
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(130,205,66,0,7); ctx.fill();
+    ctx.fillStyle="#ff3366"; ctx.fillRect(205,168,104,104);
+  } else if (kind === "texture") {
+    for (let y=0;y<IMG_SIZE;y+=8) for (let x=0;x<IMG_SIZE;x+=8) {
+      const v=(Math.sin(x*0.05)+Math.cos(y*0.04)+Math.sin((x+y)*0.03))/3+0.5;
+      ctx.fillStyle=`rgb(${Math.floor(255*v)},${Math.floor(212*v)},${Math.floor(40*v)})`; ctx.fillRect(x,y,8,8);
+    }
+  } else {
+    const sky=ctx.createLinearGradient(0,0,0,IMG_SIZE/2); sky.addColorStop(0,"#1a1f2e"); sky.addColorStop(1,"#3a2540");
+    ctx.fillStyle=sky; ctx.fillRect(0,0,IMG_SIZE,IMG_SIZE/2);
+    ctx.fillStyle="#0c1218"; ctx.fillRect(0,IMG_SIZE/2,IMG_SIZE,IMG_SIZE/2);
+    ctx.fillStyle="#101820"; ctx.beginPath(); ctx.moveTo(0,190); ctx.lineTo(75,100); ctx.lineTo(140,160); ctx.lineTo(215,82); ctx.lineTo(300,150); ctx.lineTo(360,120); ctx.lineTo(360,180); ctx.lineTo(0,180); ctx.closePath(); ctx.fill();
+    ctx.fillStyle="#ffd400"; ctx.beginPath(); ctx.arc(300,56,22,0,7); ctx.fill();
+  }
+  imgData = ctx.getImageData(0,0,IMG_SIZE,IMG_SIZE);
+  computePatchValues();
+}
+function computePatchValues() {
+  const pp = IMG_SIZE/P; patchVals = [];
+  for (let i=0;i<P;i++) for (let j=0;j<P;j++) {
+    let r=0,g=0,b=0,n=0; const ox=Math.floor(j*pp),oy=Math.floor(i*pp);
+    for (let y=0;y<pp;y+=2) for (let x=0;x<pp;x+=2){const ii=((oy+y)*IMG_SIZE+(ox+x))*4;r+=imgData.data[ii];g+=imgData.data[ii+1];b+=imgData.data[ii+2];n++;}
+    patchVals.push({r:r/n,g:g/n,b:b/n,i,j});
+  }
+}
+function attentionScores(qIdx, head) {
+  const q = patchVals[qIdx];
+  const feat = p => { switch(head){
+    case 0: return [p.r/255,p.g/255,p.b/255];
+    case 1: return [(p.r+p.g+p.b)/(3*255)];
+    case 2: return [(p.r-p.b)/255,(p.g-p.r)/255];
+    case 3: return [p.i/P,p.j/P];
+    default: return [p.r/255];
+  }};
+  const qf = feat(q);
+  return patchVals.map(p => { const pf=feat(p); let d=0; for(let k=0;k<qf.length;k++)d+=qf[k]*pf[k]; return d; });
+}
+function softmax(s,t){const m=Math.max(...s);const e=s.map(x=>Math.exp((x-m)/t));const z=e.reduce((a,b)=>a+b,0);return e.map(x=>x/z);}
+function getAttn(qIdx){return softmax(attentionScores(qIdx,headIdx),temp);}
+
+function drawOverlay() {
+  const ov=document.getElementById("overlay"); const ctx=ov.getContext("2d");
+  ctx.clearRect(0,0,IMG_SIZE,IMG_SIZE);
+  const pp=IMG_SIZE/P;
+  ctx.strokeStyle="rgba(255,255,255,0.18)"; ctx.lineWidth=0.5;
+  for (let i=1;i<P;i++){ctx.beginPath();ctx.moveTo(0,i*pp);ctx.lineTo(IMG_SIZE,i*pp);ctx.stroke();ctx.beginPath();ctx.moveTo(i*pp,0);ctx.lineTo(i*pp,IMG_SIZE);ctx.stroke();}
+  ctx.strokeStyle="#ffd400"; ctx.lineWidth=2; ctx.strokeRect(hoverJ*pp,hoverI*pp,pp,pp);
+  const attn=getAttn(hoverI*P+hoverJ); const mx=Math.max(...attn);
+  for (let i=0;i<P;i++) for (let j=0;j<P;j++){const v=attn[i*P+j]/mx; if(v>0.1){ctx.fillStyle=`rgba(255,212,0,${v*0.5})`; ctx.fillRect(j*pp,i*pp,pp,pp);}}
+  const sorted=attn.map((a,idx)=>({a,idx})).sort((a,b)=>b.a-a.a).slice(0,4);
+  const qcx=hoverJ*pp+pp/2,qcy=hoverI*pp+pp/2;
+  sorted.forEach((s,k)=>{if(s.idx===hoverI*P+hoverJ)return;const ti=Math.floor(s.idx/P),tj=s.idx%P;ctx.strokeStyle=`rgba(255,51,102,${0.8-k*0.15})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(qcx,qcy);ctx.lineTo(tj*pp+pp/2,ti*pp+pp/2);ctx.stroke();});
+}
+function drawHeat(){
+  const cv=document.getElementById("attHeat"); const ctx=cv.getContext("2d"); const W=190;
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,W,W);
+  const attn=getAttn(hoverI*P+hoverJ); const mx=Math.max(...attn); const cell=W/P;
+  for (let i=0;i<P;i++) for (let j=0;j<P;j++){const v=attn[i*P+j]/mx; ctx.fillStyle=`rgba(${Math.floor(255*v)},${Math.floor(212*v)},0,1)`; ctx.fillRect(j*cell,i*cell,cell,cell);}
+  const top=attn.reduce((acc,v,i)=>v>acc.v?{v,i}:acc,{v:-Infinity,i:0});
+  document.getElementById("patchInfo").textContent=`patch (${hoverI},${hoverJ}) · top-1 = (${Math.floor(top.i/P)},${top.i%P}) @ ${top.v.toFixed(3)}`;
+  ctx.strokeStyle="rgba(255,255,255,0.1)"; ctx.lineWidth=0.5;
+  for(let k=1;k<P;k++){ctx.beginPath();ctx.moveTo(0,k*cell);ctx.lineTo(W,k*cell);ctx.stroke();ctx.beginPath();ctx.moveTo(k*cell,0);ctx.lineTo(k*cell,W);ctx.stroke();}
+}
+function drawAttnMatrix(){
+  const cv=document.getElementById("attMatrix"); const ctx=cv.getContext("2d"); const W=300; const N=P*P;
+  ctx.fillStyle="#000"; ctx.fillRect(0,0,W,W); const cell=W/N;
+  for (let q=0;q<N;q++){const a=getAttn(q); const mx=Math.max(...a)||1; for(let k=0;k<N;k++){const v=a[k]/mx; if(v>0.05){ctx.fillStyle=`rgba(${Math.floor(255*v)},${Math.floor(212*v)},0,1)`; ctx.fillRect(k*cell,q*cell,Math.ceil(cell)+0.5,Math.ceil(cell)+0.5);}}}
+  ctx.strokeStyle="var(--accent)"; ctx.lineWidth=1.5; ctx.strokeRect(-0.5,(hoverI*P+hoverJ)*cell-0.5,W+1,cell+1);
+}
+function renderHeads(){
+  const row=document.getElementById("headRow"); row.innerHTML="";
+  const names=["colour","brightness","contrast","position"];
+  for (let h=0;h<heads;h++){
+    const card=document.createElement("div"); card.style.cssText=`grid-column: span 3;`;
+    card.innerHTML=`<div class="panel"><div class="panel-head"><span class="dot"></span> HEAD ${h.toString().padStart(2,'0')} <span class="right small mono muted">${names[h]||"feature"}</span></div><div class="panel-body" style="text-align:center;"><canvas width="170" height="170" style="background:#000;width:170px;height:170px;display:block;margin:0 auto;"></canvas></div></div>`;
+    row.appendChild(card);
+    const c=card.querySelector("canvas"); const ctx=c.getContext("2d"); const W=170; const cell=W/P;
+    const old=headIdx; headIdx=h; const attn=getAttn(hoverI*P+hoverJ); headIdx=old;
+    const mx=Math.max(...attn)||1;
+    for (let i=0;i<P;i++) for (let j=0;j<P;j++){const v=attn[i*P+j]/mx; ctx.fillStyle=`rgba(${Math.floor(255*v)},${Math.floor(212*v)},0,1)`; ctx.fillRect(j*cell,i*cell,cell,cell);}
+    ctx.strokeStyle="var(--accent)"; ctx.lineWidth=1.5; ctx.strokeRect(hoverJ*cell,hoverI*cell,cell,cell);
+  }
+}
+function renderAll(){ drawOverlay(); drawHeat(); drawAttnMatrix(); renderHeads(); }
+
+document.getElementById("overlay").addEventListener("mousemove", e => {
+  const r=e.target.getBoundingClientRect();
+  const x=(e.clientX-r.left)/r.width*IMG_SIZE, y=(e.clientY-r.top)/r.height*IMG_SIZE;
+  const pp=IMG_SIZE/P;
+  hoverJ=Math.max(0,Math.min(P-1,Math.floor(x/pp))); hoverI=Math.max(0,Math.min(P-1,Math.floor(y/pp)));
+  renderAll();
+});
+document.querySelectorAll("[data-img]").forEach(b=>b.addEventListener("click",()=>{makeImage(b.dataset.img);renderAll();}));
+document.getElementById("psize").addEventListener("input",e=>{P=+e.target.value;document.getElementById("psizeV").textContent=P;hoverI=hoverJ=0;computePatchValues();renderAll();});
+document.getElementById("headIdx").addEventListener("input",e=>{headIdx=+e.target.value;document.getElementById("headIdxV").textContent=headIdx;renderAll();});
+document.getElementById("temp").addEventListener("input",e=>{temp=+e.target.value;document.getElementById("tempV").textContent=temp.toFixed(1);renderAll();});
+
+makeImage("face"); renderAll();
+</script>
+</body>
+</html>

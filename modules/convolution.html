@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Convolution Kernels · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="M02 Convolution">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M02 / FOUNDATIONS</div>
+      <h1>Convolution. <em>A 3×3 kernel</em><br>scanning a 2D field.</h1>
+      <p class="lede">A kernel is just nine numbers. Slide it across an image, multiply elementwise, sum. That's it — that's a feature. Everything in a CNN starts here.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 02.01</b> · CONVOLUTION.LIVE</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">REAL-TIME</span></span>
+        <span><b>BACKEND</b> · CPU / TYPED ARRAY</span>
+        <span><b>LATENCY</b> · ~4ms / frame</span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- main lab -->
+      <div class="grid-12">
+        <!-- INPUT IMAGE -->
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> INPUT
+              <span class="tag">H×W·1</span>
+              <span class="right shape"><b>64</b>×<b>64</b>×<b>1</b></span>
+            </div>
+            <div class="panel-body" style="text-align:center;">
+              <div class="canvas-wrap">
+                <canvas id="inputCanvas" width="320" height="320" style="background:#000;"></canvas>
+                <canvas id="kernelOverlay" width="320" height="320" style="position:absolute;left:0;top:0;pointer-events:none;"></canvas>
+              </div>
+              <div class="mt-4 flex gap-2" style="justify-content:center;">
+                <button class="btn" data-img="gradient">GRADIENT</button>
+                <button class="btn" data-img="checker">CHECKER</button>
+                <button class="btn" data-img="circles">CIRCLES</button>
+                <button class="btn" data-img="text">TEXT</button>
+                <button class="btn" data-img="noise">NOISE</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- math -->
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> EQUATION <span class="right">2D DISCRETE CONVOLUTION</span></div>
+            <div class="panel-body" style="text-align:center;font-family:var(--font-mono);font-size:13px;line-height:2;">
+              <div style="color:var(--text-2);">y[i, j] &nbsp;=&nbsp; <span style="color:var(--accent);">Σ<sub>m</sub> Σ<sub>n</sub></span> &nbsp; K[m, n] &nbsp;·&nbsp; x[i+m, j+n]</div>
+              <div class="small mt-4" style="text-align:left;">Where <b style="color:var(--accent);">K</b> is the kernel (3×3 here), <b>x</b> the input image, <b>y</b> the output feature map. Each output pixel is the dot product of the kernel with a local patch.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KERNEL EDITOR -->
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> KERNEL
+              <span class="tag">3×3</span>
+            </div>
+            <div class="panel-body" style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+              <div id="kernelGrid" style="display:grid;grid-template-columns:repeat(3, 56px);gap:4px;"></div>
+              <div class="small muted" style="text-align:center;">CLICK CELL · TYPE VALUE</div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+                <button class="btn" data-preset="identity">IDENT</button>
+                <button class="btn" data-preset="sobelX">SOBEL X</button>
+                <button class="btn" data-preset="sobelY">SOBEL Y</button>
+                <button class="btn" data-preset="laplace">LAPLACE</button>
+                <button class="btn" data-preset="blur">BLUR</button>
+                <button class="btn" data-preset="sharpen">SHARPEN</button>
+                <button class="btn" data-preset="emboss">EMBOSS</button>
+                <button class="btn" data-preset="edge">EDGE</button>
+                <button class="btn" data-preset="random">RAND</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- controls -->
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> CONTROLS</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">STRIDE</span>
+                <input type="range" min="1" max="4" step="1" value="1" id="stride">
+                <span class="value" id="strideV">1</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">PADDING</span>
+                <input type="range" min="0" max="2" step="1" value="1" id="pad">
+                <span class="value" id="padV">1</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">SCAN SPEED</span>
+                <input type="range" min="0" max="100" step="1" value="40" id="speed">
+                <span class="value" id="speedV">40</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">ABS · NORM</span>
+                <input type="range" min="0" max="1" step="0.01" value="0.5" id="norm">
+                <span class="value" id="normV">0.50</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <button class="btn primary w-full" id="playBtn" style="flex:1;">▶ SCAN</button>
+                <button class="btn" id="resetBtn">⟲</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OUTPUT -->
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> FEATURE MAP
+              <span class="tag">y = K * x</span>
+              <span class="right shape" id="outShape"><b>64</b>×<b>64</b>×<b>1</b></span>
+            </div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="outputCanvas" width="320" height="320" style="background:#000;"></canvas>
+              <div class="mt-4 small muted">RESPONSE INTENSITY · HEATMAP</div>
+              <div class="mt-2" style="display:flex;align-items:center;gap:4px;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--text-3);">
+                <span>−</span>
+                <div style="height:6px;width:160px;background:linear-gradient(90deg,#ff3366,#06080c 50%,#ffd400);"></div>
+                <span>+</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- live readouts -->
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> STEP READOUT <span class="right" id="liveStep">i=0,j=0</span></div>
+            <div class="panel-body" style="font-family:var(--font-mono);font-size:11.5px;line-height:1.7;color:var(--text-2);">
+              <div>patch · <span id="patchVals" style="color:var(--text)"></span></div>
+              <div>kernel · <span id="kVals" style="color:var(--accent)"></span></div>
+              <div>elementwise · <span id="elemVals" style="color:var(--text)"></span></div>
+              <div>sum &nbsp;&nbsp;Σ · <span id="sumV" style="color:var(--magenta)">0.00</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BANK OF KERNELS COMPARISON -->
+      <div class="section-title">
+        <span class="num">// 02</span>
+        <h2>Filter Bank · same image, eight kernels</h2>
+        <div class="line"></div>
+      </div>
+      <p class="small" style="max-width:720px;margin-bottom:18px;">Each kernel learns a different "look" — vertical edges, horizontal edges, blur, sharpen. A CNN's first layer is just dozens of these running in parallel.</p>
+
+      <div class="grid-12" id="bankRow"></div>
+
+      <!-- ANIMATED STEP-BY-STEP -->
+      <div class="section-title">
+        <span class="num">// 03</span>
+        <h2>Step-by-step · what happens at one pixel</h2>
+        <div class="line"></div>
+      </div>
+
+      <div class="grid-12">
+        <div class="span-12">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> SINGLE PIXEL EXPANSION <span class="right" id="stepLabel">step 1 / 4</span></div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;justify-content:space-around;flex-wrap:wrap;gap:32px;">
+                <!-- Patch -->
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">PATCH FROM IMAGE</div>
+                  <div id="stepPatch" class="mat" style="grid-template-columns:repeat(3,32px);"></div>
+                </div>
+                <div class="mono" style="font-size:24px;color:var(--accent);">⊙</div>
+                <!-- Kernel -->
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">KERNEL (SOBEL X)</div>
+                  <div id="stepKernel" class="mat" style="grid-template-columns:repeat(3,32px);"></div>
+                </div>
+                <div class="mono" style="font-size:24px;color:var(--accent);">=</div>
+                <!-- Products -->
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">ELEMENTWISE PRODUCT</div>
+                  <div id="stepProd" class="mat" style="grid-template-columns:repeat(3,32px);"></div>
+                </div>
+                <div class="mono" style="font-size:24px;color:var(--accent);">→ Σ</div>
+                <!-- Result -->
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">OUTPUT PIXEL</div>
+                  <div style="width:80px;height:80px;border:1px solid var(--magenta);display:grid;place-items:center;font-family:var(--font-mono);font-size:18px;color:var(--magenta);" id="stepResult">+0</div>
+                </div>
+              </div>
+              <div class="mt-6" style="display:flex;gap:12px;justify-content:center;">
+                <button class="btn" id="stepPrev">◀ PREV</button>
+                <button class="btn primary" id="stepPlay">▶ AUTO STEP</button>
+                <button class="btn" id="stepNext">NEXT ▶</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>Try this →</b> Set the kernel to <span class="mono">SOBEL X</span>, then switch the input to <span class="mono">CHECKER</span>. The output lights up wherever there's a vertical transition. Now try <span class="mono">SOBEL Y</span> — exact opposite. That's how a CNN <em>looks</em> at the world.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>
+  CORTEX.mount("convolution", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; FOUNDATIONS &nbsp;/&nbsp; <b style='color:var(--accent)'>CONVOLUTION</b>");
+</script>
+
+<script>
+/* ============== Convolution Playground ============== */
+const N = 64; // image size
+let img = new Float32Array(N*N);
+let out = new Float32Array(N*N);
+let kernel = [0,0,0,0,1,0,0,0,0];
+const PRESETS = {
+  identity: [0,0,0,0,1,0,0,0,0],
+  sobelX:   [-1,0,1,-2,0,2,-1,0,1],
+  sobelY:   [-1,-2,-1,0,0,0,1,2,1],
+  laplace:  [0,1,0,1,-4,1,0,1,0],
+  blur:     [1/9,1/9,1/9,1/9,1/9,1/9,1/9,1/9,1/9],
+  sharpen:  [0,-1,0,-1,5,-1,0,-1,0],
+  emboss:   [-2,-1,0,-1,1,1,0,1,2],
+  edge:     [-1,-1,-1,-1,8,-1,-1,-1,-1],
+};
+
+function makeImage(kind) {
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    let v = 0;
+    switch (kind) {
+      case "gradient": v = (x + y) / (2*N); break;
+      case "checker":  v = ((Math.floor(x/8)+Math.floor(y/8))%2)*0.95 + 0.025; break;
+      case "circles": {
+        const dx = x - N/2, dy = y - N/2;
+        const r = Math.hypot(dx, dy);
+        v = 0.5 + 0.5 * Math.cos(r * 0.5);
+        break;
+      }
+      case "text": {
+        // Draw "AI" — chunky pixel letters
+        v = 0.08;
+        // A
+        const A = [[10,12],[10,13],[10,14],[10,15],[10,16],[10,17],[10,18],[10,19],
+                   [11,12],[11,19],[12,12],[12,19],[13,12],[13,19],[14,12],[14,15],[14,16],[14,19],
+                   [15,12],[15,19],[16,12],[16,19],[17,12],[17,19],[18,12],[18,19],[19,12],[19,19]];
+        const I = [[10,25],[11,25],[12,25],[13,25],[14,25],[15,25],[16,25],[17,25],[18,25],[19,25]];
+        const map = new Set([...A.map(p=>p[0]*100+p[1]),...I.map(p=>p[0]*100+p[1])]);
+        // scale to 64x64
+        const yy = Math.floor(y * 30 / N) + 8;
+        const xx = Math.floor(x * 30 / N) + 6;
+        if (map.has(yy*100+xx)) v = 0.95;
+        break;
+      }
+      case "noise": v = Math.random(); break;
+      default:      v = (x + y) / (2*N);
+    }
+    img[y*N+x] = v;
+  }
+}
+
+function conv(stride, pad, k) {
+  const Nout = Math.floor((N + 2*pad - 3) / stride) + 1;
+  const o = new Float32Array(Nout*Nout);
+  for (let i = 0; i < Nout; i++) for (let j = 0; j < Nout; j++) {
+    let s = 0;
+    for (let m = 0; m < 3; m++) for (let n = 0; n < 3; n++) {
+      const yy = i*stride + m - pad;
+      const xx = j*stride + n - pad;
+      let v = 0;
+      if (yy >= 0 && yy < N && xx >= 0 && xx < N) v = img[yy*N+xx];
+      s += k[m*3+n] * v;
+    }
+    o[i*Nout+j] = s;
+  }
+  return { data: o, size: Nout };
+}
+
+function drawImage(canvas, data, size, mode = "gray", norm = 0.5) {
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== canvas.offsetWidth * dpr) {
+    canvas.width = canvas.offsetWidth * dpr; canvas.height = canvas.offsetHeight * dpr;
+    ctx.scale(dpr, dpr);
+  }
+  const px = canvas.offsetWidth / size;
+  ctx.clearRect(0,0,canvas.offsetWidth,canvas.offsetHeight);
+  let mx = 0;
+  for (let i = 0; i < data.length; i++) if (Math.abs(data[i]) > mx) mx = Math.abs(data[i]);
+  const m = Math.max(0.01, mx);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const v = data[y*size+x];
+    let r, g, b;
+    if (mode === "gray") {
+      const g0 = Math.max(0, Math.min(1, v));
+      r = g = b = Math.floor(g0 * 255);
+    } else {
+      // diverging — magenta(neg) → black → yellow(pos)
+      const nv = v / m;
+      const sat = Math.min(1, Math.abs(nv) / norm);
+      if (nv >= 0) { r = Math.floor(255*sat); g = Math.floor(212*sat); b = 0; }
+      else         { r = Math.floor(255*sat); g = Math.floor(51*sat);  b = Math.floor(102*sat); }
+    }
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(x*px, y*px, Math.ceil(px), Math.ceil(px));
+  }
+}
+
+/* state */
+let stride = 1, pad = 1, speed = 40, norm = 0.5;
+let scanI = 0, scanJ = 0;
+let playing = true;
+
+/* DOM */
+const inputC = document.getElementById("inputCanvas");
+const outC = document.getElementById("outputCanvas");
+const overlay = document.getElementById("kernelOverlay");
+const kGrid = document.getElementById("kernelGrid");
+const outShape = document.getElementById("outShape");
+const patchValsEl = document.getElementById("patchVals");
+const kValsEl = document.getElementById("kVals");
+const elemValsEl = document.getElementById("elemVals");
+const sumVEl = document.getElementById("sumV");
+const liveStepEl = document.getElementById("liveStep");
+
+function renderKernelGrid() {
+  kGrid.innerHTML = "";
+  kernel.forEach((v, idx) => {
+    const cell = document.createElement("div");
+    cell.style.cssText = "width:56px;height:56px;display:grid;place-items:center;background:var(--raised);border:1px solid var(--hairline);font-family:var(--font-mono);font-size:13px;color:var(--text);cursor:pointer;";
+    cell.textContent = (v === 0 ? "0" : (Math.abs(v) < 0.01 ? v.toFixed(3) : (Number.isInteger(v) ? v.toString() : v.toFixed(2))));
+    cell.addEventListener("click", () => {
+      const r = prompt("Set value:", v.toString());
+      if (r === null) return;
+      const nv = parseFloat(r); if (isNaN(nv)) return;
+      kernel[idx] = nv;
+      renderKernelGrid();
+      recompute();
+    });
+    if (v > 0) cell.style.color = "var(--accent)";
+    if (v < 0) cell.style.color = "var(--magenta)";
+    kGrid.appendChild(cell);
+  });
+}
+
+function recompute() {
+  const r = conv(stride, pad, kernel);
+  out = r.data;
+  drawImage(outC, out, r.size, "div", norm);
+  outShape.innerHTML = `<b>${r.size}</b>×<b>${r.size}</b>×<b>1</b>`;
+}
+
+function redrawInput() {
+  drawImage(inputC, img, N, "gray");
+}
+
+function drawOverlay() {
+  const ctx = overlay.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  if (overlay.width !== overlay.offsetWidth * dpr) {
+    overlay.width = overlay.offsetWidth * dpr; overlay.height = overlay.offsetHeight * dpr;
+    ctx.scale(dpr, dpr);
+  }
+  ctx.clearRect(0,0,overlay.offsetWidth, overlay.offsetHeight);
+  const px = overlay.offsetWidth / N;
+  const kx = (scanJ - pad) * px, ky = (scanI - pad) * px;
+  // glow square
+  ctx.strokeStyle = "rgba(255,212,0,0.95)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(kx, ky, 3*px, 3*px);
+  ctx.fillStyle = "rgba(255,212,0,0.12)";
+  ctx.fillRect(kx, ky, 3*px, 3*px);
+  // crosshair on output canvas
+  const oc = outC.getContext("2d");
+  const opx = outC.offsetWidth / N;
+  oc.strokeStyle = "rgba(255,51,102,0.95)";
+  oc.lineWidth = 2;
+  oc.strokeRect(scanJ*opx, scanI*opx, opx*1.5, opx*1.5);
+}
+
+function tickScan() {
+  if (!playing) return;
+  // step proportional to speed
+  const steps = Math.max(1, Math.floor(speed/15));
+  for (let s = 0; s < steps; s++) {
+    scanJ += stride;
+    if (scanJ >= N) { scanJ = 0; scanI += stride; }
+    if (scanI >= N) { scanI = 0; }
+  }
+  // update readouts
+  let patch = [], elem = [], sum = 0;
+  for (let m = 0; m < 3; m++) for (let n = 0; n < 3; n++) {
+    const yy = scanI + m - pad, xx = scanJ + n - pad;
+    const v = (yy >= 0 && yy < N && xx >= 0 && xx < N) ? img[yy*N+xx] : 0;
+    const kv = kernel[m*3+n];
+    patch.push(v.toFixed(2));
+    elem.push((kv*v).toFixed(2));
+    sum += kv*v;
+  }
+  patchValsEl.textContent = "[" + patch.join(",") + "]";
+  kValsEl.textContent = "[" + kernel.map(k=>k.toFixed(2)).join(",") + "]";
+  elemValsEl.textContent = "[" + elem.join(",") + "]";
+  sumVEl.textContent = (sum >= 0 ? "+" : "") + sum.toFixed(3);
+  liveStepEl.textContent = `i=${scanI}, j=${scanJ}`;
+}
+
+let lastTick = 0;
+function animate(t) {
+  if (t - lastTick > Math.max(20, 200 - speed*1.8)) {
+    tickScan();
+    drawOverlay();
+    lastTick = t;
+  }
+  requestAnimationFrame(animate);
+}
+
+/* events */
+document.querySelectorAll("[data-img]").forEach(b => b.addEventListener("click", () => {
+  makeImage(b.dataset.img); redrawInput(); recompute();
+}));
+document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+  const p = b.dataset.preset;
+  if (p === "random") {
+    kernel = Array.from({length:9}, () => +(Math.random()*2-1).toFixed(2));
+  } else {
+    kernel = [...PRESETS[p]];
+  }
+  renderKernelGrid(); recompute();
+}));
+document.getElementById("stride").addEventListener("input", e => {
+  stride = +e.target.value; document.getElementById("strideV").textContent = stride; recompute();
+});
+document.getElementById("pad").addEventListener("input", e => {
+  pad = +e.target.value; document.getElementById("padV").textContent = pad; recompute();
+});
+document.getElementById("speed").addEventListener("input", e => {
+  speed = +e.target.value; document.getElementById("speedV").textContent = speed;
+});
+document.getElementById("norm").addEventListener("input", e => {
+  norm = +e.target.value; document.getElementById("normV").textContent = norm.toFixed(2); recompute();
+});
+document.getElementById("playBtn").addEventListener("click", e => {
+  playing = !playing; e.target.textContent = playing ? "❚❚ PAUSE" : "▶ SCAN";
+});
+document.getElementById("resetBtn").addEventListener("click", () => {
+  scanI = scanJ = 0;
+});
+
+/* init */
+makeImage("circles");
+redrawInput();
+renderKernelGrid();
+recompute();
+requestAnimationFrame(animate);
+
+/* ---- Filter Bank ---- */
+const banks = ["identity","sobelX","sobelY","laplace","blur","sharpen","emboss","edge"];
+const bankRow = document.getElementById("bankRow");
+banks.forEach(name => {
+  const cell = document.createElement("div");
+  cell.style.cssText = "grid-column: span 3;";
+  cell.innerHTML = `
+    <div class="panel">
+      <div class="panel-head"><span class="dot"></span> ${name.toUpperCase()}<span class="right mono" style="font-size:10px;color:var(--text-3);">3×3</span></div>
+      <div class="panel-body" style="text-align:center;">
+        <canvas width="180" height="180" style="background:#000;display:block;margin:0 auto;"></canvas>
+        <div class="small muted mt-2 mono">[${PRESETS[name].map(v=>v.toFixed(2)).join(", ")}]</div>
+      </div>
+    </div>`;
+  bankRow.appendChild(cell);
+  const c = cell.querySelector("canvas");
+  const r = (function(){
+    const k = PRESETS[name];
+    const o = new Float32Array(N*N);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      let s = 0;
+      for (let m = 0; m < 3; m++) for (let n = 0; n < 3; n++) {
+        const yy = i + m - 1, xx = j + n - 1;
+        const v = (yy>=0&&yy<N&&xx>=0&&xx<N) ? img[yy*N+xx] : 0;
+        s += k[m*3+n] * v;
+      }
+      o[i*N+j] = s;
+    }
+    return o;
+  })();
+  drawImage(c, r, N, "div");
+});
+
+/* update bank when input changes */
+document.querySelectorAll("[data-img]").forEach(b => b.addEventListener("click", () => {
+  bankRow.querySelectorAll(".panel").forEach((p, idx) => {
+    const k = PRESETS[banks[idx]];
+    const o = new Float32Array(N*N);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      let s = 0;
+      for (let m = 0; m < 3; m++) for (let n = 0; n < 3; n++) {
+        const yy = i + m - 1, xx = j + n - 1;
+        const v = (yy>=0&&yy<N&&xx>=0&&xx<N) ? img[yy*N+xx] : 0;
+        s += k[m*3+n] * v;
+      }
+      o[i*N+j] = s;
+    }
+    drawImage(p.querySelector("canvas"), o, N, "div");
+  });
+}));
+
+/* ---- Step-by-step ---- */
+const samplePatch = [0.1, 0.4, 0.9, 0.2, 0.5, 0.8, 0.15, 0.45, 0.85];
+const sampleKernel = PRESETS.sobelX;
+let stepIdx = 0;
+function renderStep() {
+  const sp = document.getElementById("stepPatch");
+  const sk = document.getElementById("stepKernel");
+  const spr = document.getElementById("stepProd");
+  const sr = document.getElementById("stepResult");
+  sp.innerHTML = ""; sk.innerHTML = ""; spr.innerHTML = "";
+  for (let i = 0; i < 9; i++) {
+    const c1 = document.createElement("div"); c1.className = "c"; c1.textContent = samplePatch[i].toFixed(2); sp.appendChild(c1);
+    const c2 = document.createElement("div"); c2.className = "c"; c2.textContent = sampleKernel[i]; sk.appendChild(c2);
+    if (sampleKernel[i] > 0) c2.classList.add("hi");
+    if (sampleKernel[i] < 0) c2.classList.add("hi2");
+    const prod = samplePatch[i] * sampleKernel[i];
+    const c3 = document.createElement("div"); c3.className = "c";
+    c3.textContent = stepIdx >= 1 ? prod.toFixed(2) : "·"; spr.appendChild(c3);
+    if (stepIdx >= 1) {
+      if (prod > 0) c3.classList.add("hi");
+      if (prod < 0) c3.classList.add("hi2");
+    }
+  }
+  let s = samplePatch.reduce((a, v, i) => a + v * sampleKernel[i], 0);
+  if (stepIdx >= 2) sr.textContent = (s >= 0 ? "+" : "") + s.toFixed(2);
+  else sr.textContent = "+0";
+  document.getElementById("stepLabel").textContent = `step ${stepIdx+1} / 4`;
+}
+renderStep();
+document.getElementById("stepNext").addEventListener("click", () => { stepIdx = Math.min(3, stepIdx+1); renderStep(); });
+document.getElementById("stepPrev").addEventListener("click", () => { stepIdx = Math.max(0, stepIdx-1); renderStep(); });
+let stepAuto = null;
+document.getElementById("stepPlay").addEventListener("click", e => {
+  if (stepAuto) { clearInterval(stepAuto); stepAuto = null; e.target.textContent = "▶ AUTO STEP"; }
+  else { stepAuto = setInterval(() => { stepIdx = (stepIdx+1)%4; renderStep(); }, 1100); e.target.textContent = "❚❚ PAUSE"; }
+});
+</script>
+</body>
+</html>

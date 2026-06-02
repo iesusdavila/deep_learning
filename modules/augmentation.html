@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Augmentation Lab · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="M08 Augmentation">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M15 / LABORATORY</div>
+      <h1>Augmentation. <em>Free data,</em><br>from the data you already have.</h1>
+      <p class="lede">Show a model the same image flipped, jittered, blurred, cut — and it learns that an "object" isn't a particular set of pixels but an invariant beneath transformations. Build a pipeline. Roll a batch. See it.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 08.01</b> · AUGMENTATION.PIPE</span>
+        <span><b>STAGES</b> · <span style="color:var(--text)" id="stagesR">5</span></span>
+        <span><b>BATCH</b> · <span style="color:var(--text)" id="batchR">16</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="grid-12">
+        <!-- PIPELINE EDITOR -->
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> PIPELINE</div>
+            <div class="panel-body">
+              <div id="pipeline" style="display:flex;flex-direction:column;gap:8px;"></div>
+              <div class="mt-4">
+                <select id="addOp" style="width:100%;">
+                  <option value="">+ ADD OP</option>
+                  <option value="flipH">Horizontal Flip</option>
+                  <option value="flipV">Vertical Flip</option>
+                  <option value="rotate">Rotate</option>
+                  <option value="crop">Random Crop</option>
+                  <option value="scale">Random Scale</option>
+                  <option value="brightness">Brightness</option>
+                  <option value="contrast">Contrast</option>
+                  <option value="hue">Hue Shift</option>
+                  <option value="saturation">Saturation</option>
+                  <option value="blur">Gaussian Blur</option>
+                  <option value="noise">Gaussian Noise</option>
+                  <option value="cutout">Cutout</option>
+                </select>
+              </div>
+              <div class="mt-4 flex gap-2">
+                <button class="btn primary w-full" id="rollBtn" style="flex:1;">⟳ ROLL BATCH</button>
+                <button class="btn" id="clearBtn">CLEAR</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> SOURCE</div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="srcImg" width="180" height="180" style="background:#000;display:block;margin:0 auto;"></canvas>
+              <div class="mt-4 flex gap-2" style="justify-content:center;flex-wrap:wrap;">
+                <button class="btn" data-img="cat">CAT</button>
+                <button class="btn" data-img="dog">DOG</button>
+                <button class="btn" data-img="abstract">ABSTRACT</button>
+                <button class="btn" data-img="grid">GRID</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- AUGMENTED BATCH GRID -->
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> BATCH · 16 INDEPENDENT ROLLS <span class="right small mono muted">apply pipeline w/ random params</span></div>
+            <div class="panel-body">
+              <div id="batchGrid" style="display:grid;grid-template-columns:repeat(8, 1fr);gap:8px;"></div>
+              <div class="small muted mt-4 mono">Same source · 16 random samples · each result is what the model sees as a "different" training example.</div>
+            </div>
+          </div>
+
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> STAGE-BY-STAGE · single roll, each stage applied in order</div>
+            <div class="panel-body">
+              <div id="stageRow" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>Discipline →</b> Augmentation should be invariant to the label. Flipping a cat horizontally? Still a cat. Flipping a "6"? Now it's a "9" — wrong label. Pick augmentations that preserve the semantics you care about.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("augmentation", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; LABORATORY &nbsp;/&nbsp; <b style='color:var(--accent)'>AUGMENTATION</b>");</script>
+
+<script>
+const SZ = 96;
+let srcRGB = new Uint8ClampedArray(SZ*SZ*3);
+let pipeline = [
+  { type: "flipH", p: 0.5 },
+  { type: "rotate", angle: 15 },
+  { type: "brightness", v: 0.3 },
+  { type: "noise", sigma: 0.04 },
+  { type: "cutout", size: 24 },
+];
+
+function makeSrc(kind) {
+  // procedural pet/abstract
+  const w = SZ, h = SZ;
+  const tmp = document.createElement("canvas"); tmp.width = w; tmp.height = h;
+  const ctx = tmp.getContext("2d");
+  ctx.fillStyle = "#1a1a22"; ctx.fillRect(0,0,w,h);
+  if (kind === "cat" || !kind) {
+    // body
+    ctx.fillStyle = "#ffd400";
+    ctx.beginPath(); ctx.ellipse(w/2, h*0.65, 30, 22, 0, 0, Math.PI*2); ctx.fill();
+    // head
+    ctx.beginPath(); ctx.ellipse(w/2, h*0.35, 20, 18, 0, 0, Math.PI*2); ctx.fill();
+    // ears
+    ctx.beginPath(); ctx.moveTo(w/2-16, h*0.25); ctx.lineTo(w/2-22, h*0.13); ctx.lineTo(w/2-6, h*0.22); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(w/2+16, h*0.25); ctx.lineTo(w/2+22, h*0.13); ctx.lineTo(w/2+6, h*0.22); ctx.fill();
+    // eyes
+    ctx.fillStyle = "#0a0a0a";
+    ctx.beginPath(); ctx.arc(w/2-7, h*0.34, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(w/2+7, h*0.34, 2.5, 0, Math.PI*2); ctx.fill();
+    // nose
+    ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(w/2, h*0.42, 2, 0, Math.PI*2); ctx.fill();
+  } else if (kind === "dog") {
+    ctx.fillStyle = "#c8853d";
+    ctx.beginPath(); ctx.ellipse(w/2, h*0.6, 32, 22, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w/2, h*0.35, 22, 18, 0, 0, Math.PI*2); ctx.fill();
+    // floppy ears
+    ctx.fillStyle = "#8a5520";
+    ctx.beginPath(); ctx.ellipse(w/2-22, h*0.42, 8, 16, -0.4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w/2+22, h*0.42, 8, 16, 0.4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#0a0a0a";
+    ctx.beginPath(); ctx.arc(w/2-8, h*0.33, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(w/2+8, h*0.33, 2.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#0a0a0a"; ctx.beginPath(); ctx.arc(w/2, h*0.44, 3, 0, Math.PI*2); ctx.fill();
+  } else if (kind === "abstract") {
+    ctx.fillStyle = "#0a0d12"; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = "#ffd400"; ctx.beginPath(); ctx.arc(w*0.35, h*0.4, 22, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#ff3366"; ctx.fillRect(w*0.5, h*0.3, 28, 38);
+    ctx.fillStyle = "#4dd0ff"; ctx.beginPath(); ctx.moveTo(w*0.25, h*0.7); ctx.lineTo(w*0.55, h*0.85); ctx.lineTo(w*0.4, h*0.95); ctx.fill();
+  } else if (kind === "grid") {
+    for (let y = 0; y < h; y += 8) for (let x = 0; x < w; x += 8) {
+      ctx.fillStyle = ((x/8 + y/8) % 2 === 0) ? "#ffd400" : "#06080c";
+      ctx.fillRect(x, y, 8, 8);
+    }
+  }
+  // store as srcRGB
+  const data = ctx.getImageData(0, 0, w, h);
+  for (let i = 0; i < w*h; i++) {
+    srcRGB[i*3] = data.data[i*4];
+    srcRGB[i*3+1] = data.data[i*4+1];
+    srcRGB[i*3+2] = data.data[i*4+2];
+  }
+  paint(document.getElementById("srcImg"), srcRGB);
+}
+
+function paint(canvas, rgb) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*SZ/W), sy = Math.floor(y*SZ/H);
+    const si = (sy*SZ+sx)*3, di = (y*W+x)*4;
+    id.data[di] = rgb[si]; id.data[di+1] = rgb[si+1]; id.data[di+2] = rgb[si+2]; id.data[di+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+/* ===== AUGMENTATION OPS ===== */
+function apply(op, src, seed) {
+  const out = new Uint8ClampedArray(SZ*SZ*3);
+  const r = (s => () => { s = (s*9301+49297)%233280; return s/233280; })(seed);
+  if (op.type === "flipH") {
+    if (op.p === undefined || r() < op.p) {
+      for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+        const si = (y*SZ + (SZ-1-x))*3, di = (y*SZ+x)*3;
+        out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2];
+      }
+      return out;
+    }
+    return new Uint8ClampedArray(src);
+  }
+  if (op.type === "flipV") {
+    if (op.p === undefined || r() < op.p) {
+      for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+        const si = ((SZ-1-y)*SZ + x)*3, di = (y*SZ+x)*3;
+        out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2];
+      }
+      return out;
+    }
+    return new Uint8ClampedArray(src);
+  }
+  if (op.type === "rotate") {
+    const angle = (op.angle || 0) * (r()*2-1) * Math.PI/180;
+    const cx = SZ/2, cy = SZ/2;
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      const dx = x - cx, dy = y - cy;
+      const sx = Math.floor(cx + dx*Math.cos(-angle) - dy*Math.sin(-angle));
+      const sy = Math.floor(cy + dx*Math.sin(-angle) + dy*Math.cos(-angle));
+      const di = (y*SZ+x)*3;
+      if (sx >= 0 && sx < SZ && sy >= 0 && sy < SZ) {
+        const si = (sy*SZ+sx)*3;
+        out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2];
+      } else { out[di] = 0; out[di+1] = 0; out[di+2] = 10; }
+    }
+    return out;
+  }
+  if (op.type === "crop") {
+    const minS = op.minScale || 0.7;
+    const s = minS + r() * (1 - minS);
+    const cropSz = Math.floor(SZ * s);
+    const ox = Math.floor(r() * (SZ - cropSz));
+    const oy = Math.floor(r() * (SZ - cropSz));
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      const sx = Math.floor(ox + (x/SZ)*cropSz), sy = Math.floor(oy + (y/SZ)*cropSz);
+      const si = (sy*SZ+sx)*3, di = (y*SZ+x)*3;
+      out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2];
+    }
+    return out;
+  }
+  if (op.type === "scale") {
+    const s = 0.6 + r() * 0.8;
+    const newSz = Math.floor(SZ * s);
+    const offX = (SZ - newSz)/2, offY = (SZ - newSz)/2;
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      const di = (y*SZ+x)*3;
+      const sx = Math.floor((x - offX) * SZ / newSz);
+      const sy = Math.floor((y - offY) * SZ / newSz);
+      if (sx >= 0 && sx < SZ && sy >= 0 && sy < SZ) {
+        const si = (sy*SZ+sx)*3;
+        out[di] = src[si]; out[di+1] = src[si+1]; out[di+2] = src[si+2];
+      } else { out[di] = 0; out[di+1] = 0; out[di+2] = 10; }
+    }
+    return out;
+  }
+  if (op.type === "brightness") {
+    const v = (r()*2-1) * (op.v || 0.3) * 255;
+    for (let i = 0; i < SZ*SZ*3; i++) out[i] = Math.max(0, Math.min(255, src[i] + v));
+    return out;
+  }
+  if (op.type === "contrast") {
+    const v = 1 + (r()*2-1) * (op.v || 0.5);
+    for (let i = 0; i < SZ*SZ*3; i++) out[i] = Math.max(0, Math.min(255, (src[i]-128)*v + 128));
+    return out;
+  }
+  if (op.type === "hue") {
+    const shift = (r()*2-1) * (op.v || 0.2);
+    for (let i = 0; i < SZ*SZ; i++) {
+      const R = src[i*3]/255, G = src[i*3+1]/255, B = src[i*3+2]/255;
+      // simple hue rotation matrix
+      const cos = Math.cos(shift*Math.PI), sin = Math.sin(shift*Math.PI);
+      const r2 = R*cos + G*(-sin*0.5) + B*sin*0.5;
+      const g2 = R*sin*0.5 + G*cos + B*(-sin*0.5);
+      const b2 = R*(-sin*0.5) + G*sin*0.5 + B*cos;
+      out[i*3] = Math.max(0, Math.min(255, r2*255));
+      out[i*3+1] = Math.max(0, Math.min(255, g2*255));
+      out[i*3+2] = Math.max(0, Math.min(255, b2*255));
+    }
+    return out;
+  }
+  if (op.type === "saturation") {
+    const v = 1 + (r()*2-1) * (op.v || 0.5);
+    for (let i = 0; i < SZ*SZ; i++) {
+      const R = src[i*3], G = src[i*3+1], B = src[i*3+2];
+      const gray = 0.299*R + 0.587*G + 0.114*B;
+      out[i*3] = Math.max(0, Math.min(255, gray + v*(R - gray)));
+      out[i*3+1] = Math.max(0, Math.min(255, gray + v*(G - gray)));
+      out[i*3+2] = Math.max(0, Math.min(255, gray + v*(B - gray)));
+    }
+    return out;
+  }
+  if (op.type === "blur") {
+    const k = op.k || 3;
+    const half = Math.floor(k/2);
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      let R = 0, G = 0, B = 0, n = 0;
+      for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+        const yy = y+dy, xx = x+dx;
+        if (yy < 0 || yy >= SZ || xx < 0 || xx >= SZ) continue;
+        const si = (yy*SZ+xx)*3;
+        R += src[si]; G += src[si+1]; B += src[si+2]; n++;
+      }
+      const di = (y*SZ+x)*3;
+      out[di] = R/n; out[di+1] = G/n; out[di+2] = B/n;
+    }
+    return out;
+  }
+  if (op.type === "noise") {
+    const sigma = (op.sigma || 0.05) * 255;
+    for (let i = 0; i < SZ*SZ*3; i++) out[i] = Math.max(0, Math.min(255, src[i] + (r()*2-1) * sigma));
+    return out;
+  }
+  if (op.type === "cutout") {
+    out.set(src);
+    const sz = op.size || 24;
+    const cx = Math.floor(r() * (SZ - sz));
+    const cy = Math.floor(r() * (SZ - sz));
+    for (let y = cy; y < cy + sz; y++) for (let x = cx; x < cx + sz; x++) {
+      const di = (y*SZ+x)*3;
+      out[di] = 0; out[di+1] = 0; out[di+2] = 10;
+    }
+    return out;
+  }
+  return new Uint8ClampedArray(src);
+}
+
+function applyPipeline(src, seed) {
+  let cur = new Uint8ClampedArray(src);
+  pipeline.forEach((op, i) => {
+    cur = apply(op, cur, seed + i*17);
+  });
+  return cur;
+}
+
+/* ===== UI ===== */
+const OP_NAMES = {
+  flipH: "Horizontal Flip", flipV: "Vertical Flip", rotate: "Rotate", crop: "Random Crop", scale: "Random Scale",
+  brightness: "Brightness", contrast: "Contrast", hue: "Hue Shift", saturation: "Saturation",
+  blur: "Gaussian Blur", noise: "Gaussian Noise", cutout: "Cutout"
+};
+const OP_DEFAULTS = {
+  flipH: { p: 0.5 }, flipV: { p: 0.5 },
+  rotate: { angle: 15 }, crop: { minScale: 0.7 }, scale: {},
+  brightness: { v: 0.3 }, contrast: { v: 0.5 }, hue: { v: 0.2 }, saturation: { v: 0.5 },
+  blur: { k: 3 }, noise: { sigma: 0.05 }, cutout: { size: 24 }
+};
+
+function renderPipeline() {
+  const el = document.getElementById("pipeline");
+  el.innerHTML = "";
+  pipeline.forEach((op, idx) => {
+    const row = document.createElement("div");
+    row.style.cssText = "background:var(--raised);border:1px solid var(--hairline);padding:10px;font-family:var(--font-mono);font-size:11px;";
+    const keys = Object.keys(op).filter(k => k !== "type");
+    const ctrls = keys.map(k =>
+      `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+        <span style="color:var(--text-3);min-width:50px;">${k}</span>
+        <input type="number" step="${typeof op[k] === 'number' && op[k] < 1 ? '0.05' : '1'}" value="${op[k]}" data-idx="${idx}" data-k="${k}" style="flex:1;">
+      </div>`
+    ).join("");
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="color:var(--accent);">${(idx+1).toString().padStart(2,'0')} · ${OP_NAMES[op.type]}</span>
+        <span style="color:var(--text-3);cursor:pointer;" data-del="${idx}">✕</span>
+      </div>
+      ${ctrls}`;
+    el.appendChild(row);
+  });
+  document.getElementById("stagesR").textContent = pipeline.length;
+  el.querySelectorAll("input").forEach(inp => inp.addEventListener("input", e => {
+    pipeline[+e.target.dataset.idx][e.target.dataset.k] = parseFloat(e.target.value) || 0;
+    renderAll();
+  }));
+  el.querySelectorAll("[data-del]").forEach(x => x.addEventListener("click", e => {
+    pipeline.splice(+e.target.dataset.del, 1); renderPipeline(); renderAll();
+  }));
+}
+
+function renderAll() {
+  // batch
+  const grid = document.getElementById("batchGrid");
+  grid.innerHTML = "";
+  for (let i = 0; i < 16; i++) {
+    const cv = document.createElement("canvas"); cv.width = 96; cv.height = 96;
+    cv.style.cssText = "width:100%;aspect-ratio:1;background:#000;border:1px solid var(--hairline);";
+    grid.appendChild(cv);
+    paint(cv, applyPipeline(srcRGB, Date.now() % 1000 + i*373));
+  }
+  // stage row
+  const sr = document.getElementById("stageRow");
+  sr.innerHTML = "";
+  const seed = Date.now() % 1000;
+  let cur = new Uint8ClampedArray(srcRGB);
+  // first stage = source
+  function pushTile(label, img) {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "text-align:center;";
+    const cv = document.createElement("canvas"); cv.width = 90; cv.height = 90;
+    cv.style.cssText = "background:#000;border:1px solid var(--hairline);display:block;";
+    paint(cv, img);
+    wrap.appendChild(cv);
+    const lbl = document.createElement("div");
+    lbl.style.cssText = "font-family:var(--font-mono);font-size:10px;color:var(--text-3);margin-top:4px;";
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+    return wrap;
+  }
+  sr.appendChild(pushTile("SOURCE", cur));
+  pipeline.forEach((op, i) => {
+    const arr = document.createElement("div"); arr.className = "arrow-conn"; arr.style.cssText = "color:var(--accent);font-family:var(--font-mono);font-size:14px;"; arr.textContent = "→";
+    sr.appendChild(arr);
+    cur = apply(op, cur, seed + i*17);
+    sr.appendChild(pushTile(`${i+1}·${op.type}`, cur));
+  });
+}
+
+/* events */
+document.getElementById("rollBtn").addEventListener("click", renderAll);
+document.getElementById("clearBtn").addEventListener("click", () => { pipeline = []; renderPipeline(); renderAll(); });
+document.getElementById("addOp").addEventListener("change", e => {
+  if (!e.target.value) return;
+  pipeline.push({ type: e.target.value, ...OP_DEFAULTS[e.target.value] });
+  e.target.value = "";
+  renderPipeline(); renderAll();
+});
+document.querySelectorAll("[data-img]").forEach(b => b.addEventListener("click", () => { makeSrc(b.dataset.img); renderAll(); }));
+
+makeSrc("cat");
+renderPipeline();
+renderAll();
+</script>
+</body>
+</html>

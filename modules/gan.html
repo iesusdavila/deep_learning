@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>GANs · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .net-box { padding:10px 12px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:11px; text-align:center; }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M08 GANs">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M13 / ARCHITECTURES</div>
+      <h1>GANs. <em>A forger</em> and<br><em>a detective</em>, locked in a duel.</h1>
+      <p class="lede">Two networks play a game. The Generator forges samples from noise; the Discriminator tries to tell real from fake. Each makes the other better. When the forger wins, its fakes are indistinguishable from reality. This is a <em>real</em> GAN — both networks train live, in your browser, with full backpropagation.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 08.01</b> · ADVERSARIAL.GAME</span>
+        <span><b>STEP</b> · <span style="color:var(--text)" id="stepR">0</span></span>
+        <span><b>D(real)</b> · <span style="color:var(--accent)" id="dRealR">—</span></span>
+        <span><b>D(fake)</b> · <span style="color:var(--magenta)" id="dFakeR">—</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- THE GAME -->
+      <div class="section-title"><span class="num">// 01</span><h2>The adversarial game</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> GENERATOR vs DISCRIMINATOR</div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;justify-content:space-around;gap:12px;flex-wrap:wrap;text-align:center;">
+                <div>
+                  <div class="net-box" style="border-color:var(--text-3);color:var(--text-2);">noise z ~ 𝒩(0,1)<div style="font-size:9px;color:var(--text-3)">2-D latent</div></div>
+                </div>
+                <div style="color:var(--accent);font-family:var(--font-mono);">→</div>
+                <div>
+                  <div class="net-box" style="border-color:var(--accent);color:var(--accent);">GENERATOR G<div style="font-size:9px;color:var(--text-3)">2→16→2 · tanh</div></div>
+                  <div class="small muted mt-2 mono">"the forger"</div>
+                </div>
+                <div style="color:var(--accent);font-family:var(--font-mono);">→</div>
+                <div>
+                  <div class="net-box" style="border-color:var(--magenta);color:var(--magenta);">DISCRIMINATOR D<div style="font-size:9px;color:var(--text-3)">2→16→1 · sigmoid</div></div>
+                  <div class="small muted mt-2 mono">"the detective"</div>
+                </div>
+                <div style="color:var(--accent);font-family:var(--font-mono);">→</div>
+                <div>
+                  <div class="net-box">p(real)<div style="font-size:9px;color:var(--text-3)">0 … 1</div></div>
+                </div>
+              </div>
+              <div class="panel mt-6" style="background:var(--void);">
+                <div class="panel-body" style="text-align:center;font-family:var(--font-mono);font-size:14px;line-height:2.2;">
+                  <div style="color:var(--text-2);font-size:12px;">the minimax objective</div>
+                  <div>min<sub style="color:var(--accent)">G</sub> max<sub style="color:var(--magenta)">D</sub> &nbsp; 𝔼<sub>x~real</sub>[log D(x)] + 𝔼<sub>z~noise</sub>[log(1 − D(G(z)))]</div>
+                </div>
+              </div>
+              <div class="callout mt-4">
+                <b>Read it as a duel →</b> D wants to <em>maximize</em> the expression: push D(real)→1 and D(fake)→0. G wants to <em>minimize</em> it: fool D into outputting D(fake)→1. Neither can win permanently — every improvement by one creates pressure on the other. Equilibrium is reached when fakes are statistically identical to reals and D is stuck guessing 0.5.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> THE TRAINING STEP</div>
+            <div class="panel-body">
+              <div style="display:grid;grid-template-columns:24px 1fr;gap:0;font-size:13px;">
+                <div style="font-family:var(--font-mono);color:var(--magenta);padding:10px 0;border-bottom:1px solid var(--hairline);">D</div>
+                <div style="padding:10px 0;border-bottom:1px solid var(--hairline);">Sample real points + generate fakes. Train D to label reals <b style="color:var(--accent)">1</b>, fakes <b style="color:var(--magenta)">0</b>. <span class="small muted">(detective studies)</span></div>
+                <div style="font-family:var(--font-mono);color:var(--accent);padding:10px 0;">G</div>
+                <div style="padding:10px 0;">Freeze D. Generate fakes, backprop the signal "<em>make D say 1</em>" through D into G's weights. <span class="small muted">(forger adapts)</span></div>
+              </div>
+              <div class="small muted mt-4">The gradient that updates G flows <em>through</em> the frozen discriminator — that's the only way G ever learns what "realistic" means. G never sees a real sample directly.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLAYGROUND -->
+      <div class="section-title"><span class="num">// 02</span><h2>Live training playground</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> TARGET DISTRIBUTION</div>
+            <div class="panel-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <button class="btn" data-dist="ring">RING</button>
+                <button class="btn" data-dist="moons">MOONS</button>
+                <button class="btn" data-dist="modes">8 MODES</button>
+                <button class="btn" data-dist="grid">GRID</button>
+                <button class="btn" data-dist="spiral">SPIRAL</button>
+                <button class="btn" data-dist="line">LINE</button>
+              </div>
+            </div>
+          </div>
+          <div class="panel mt-6 ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> HYPERPARAMETERS</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">G LR</span>
+                <input type="range" min="-3" max="-1" step="0.1" value="-1.7" id="glr">
+                <span class="value mono" id="glrV">0.020</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">D LR</span>
+                <input type="range" min="-3" max="-1" step="0.1" value="-1.7" id="dlr">
+                <span class="value mono" id="dlrV">0.020</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">D STEPS / G</span>
+                <input type="range" min="1" max="5" step="1" value="1" id="dsteps">
+                <span class="value" id="dstepsV">1</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">BATCH</span>
+                <input type="range" min="32" max="256" step="32" value="128" id="batch">
+                <span class="value" id="batchV">128</span>
+              </div>
+              <div class="mt-4 flex gap-2">
+                <button class="btn primary" id="playBtn" style="flex:1;">▶ TRAIN</button>
+                <button class="btn" id="stepBtn">STEP</button>
+                <button class="btn" id="resetBtn">⟲</button>
+              </div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">SHOW D-SURFACE</span>
+                <div class="toggle-group" id="surfTog"><button class="on" data-v="on">ON</button><button data-v="off">OFF</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> SAMPLE SPACE
+              <span class="right small mono"><span style="color:var(--cyan)">● real</span> &nbsp; <span style="color:var(--magenta)">● fake (G output)</span></span>
+            </div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="ganCanvas" width="520" height="520" style="width:100%;max-width:520px;aspect-ratio:1;background:#000;"></canvas>
+              <div class="mt-2" style="display:flex;align-items:center;gap:8px;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--text-3);">
+                <span style="color:var(--magenta);">D=0 (fake)</span>
+                <div style="height:6px;width:160px;background:linear-gradient(90deg,#ff3366,#06080c 50%,#ffd400);"></div>
+                <span style="color:var(--accent);">D=1 (real)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> LOSSES</div>
+            <div class="panel-body">
+              <canvas id="lossChart" width="280" height="160" style="width:100%;height:160px;background:#000;"></canvas>
+              <div class="small muted mt-2 mono"><span style="color:var(--magenta)">— D loss</span> &nbsp; <span style="color:var(--accent)">— G loss</span></div>
+            </div>
+          </div>
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> DIAGNOSTICS</div>
+            <div class="panel-body" style="font-family:var(--font-mono);font-size:12px;line-height:1.9;">
+              <div>D(real) → <span style="color:var(--accent)" id="dr2">—</span></div>
+              <div>D(fake) → <span style="color:var(--magenta)" id="df2">—</span></div>
+              <div>coverage → <span style="color:var(--text)" id="coverage">—</span></div>
+              <div>state → <span id="ganState" style="color:var(--text-2)">init</span></div>
+            </div>
+            <div class="panel-body" style="border-top:1px dashed var(--hairline);" id="diagNote">
+              <div class="small muted">When <b style="color:var(--accent)">D(real)≈D(fake)≈0.5</b> the generator has won — D can no longer tell them apart.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODE COLLAPSE -->
+      <div class="section-title"><span class="num">// 03</span><h2>Mode collapse · the classic GAN failure</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-12">
+          <div class="panel">
+            <div class="panel-head"><span class="dot" style="background:var(--fail);box-shadow:0 0 6px var(--fail);"></span> WHEN THE FORGER GETS LAZY</div>
+            <div class="panel-body">
+              <div class="grid-2" style="grid-template-columns:1fr 1fr;gap:32px;">
+                <div class="small" style="line-height:1.7;">
+                  <p style="margin-top:0;">Select the <b class="mono" style="color:var(--accent)">8 MODES</b> target above and train. Watch what often happens: the generator discovers <em>one</em> mode that reliably fools the discriminator, and dumps <em>all</em> its samples there — ignoring the other seven clusters entirely.</p>
+                  <p>This is <b style="color:var(--fail)">mode collapse</b>. The generator minimizes its loss without capturing the full diversity of the data. It found a local cheat: the detective can't punish it fast enough for ignoring modes it isn't currently looking at.</p>
+                  <p style="margin-bottom:0;"><b>Fixes in practice:</b> minibatch discrimination, unrolled GANs, Wasserstein loss (WGAN-GP), spectral normalization, or simply more D steps per G step — try cranking <span class="mono">D STEPS / G</span> to 3–5 and watch coverage improve.</p>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;">
+                  <div class="callout"><b>Healthy:</b> fakes (magenta) blanket every real cluster. <span class="mono">coverage → 8/8</span></div>
+                  <div class="callout" style="border-left-color:var(--fail);background:rgba(255,51,102,0.04);"><b>Collapsed:</b> fakes pile onto 1–2 clusters. <span class="mono">coverage → 2/8</span></div>
+                  <div class="small muted mono">The coverage readout in the diagnostics panel counts how many target modes have generated samples nearby.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>Why GANs matter →</b> Before diffusion models, GANs were how machines learned to <em>generate</em> — faces, art, super-resolution, image-to-image translation. The adversarial idea (one network supervising another) reappears everywhere: from domain adaptation to RLHF reward models. This 2D toy is the same math that drove StyleGAN.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("gan", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; ARCHITECTURES &nbsp;/&nbsp; <b style='color:var(--accent)'>GANs</b>");</script>
+
+<script>
+/* ============================================================
+   Real 2D GAN — manual backprop through G and D.
+   G: z(2) → tanh(16) → 2   |   D: x(2) → leakyrelu(16) → sigmoid(1)
+   ============================================================ */
+const H = 16;
+let Gp, Dp;            // params
+let Gm, Dm;            // momentum
+let glr = 0.02, dlr = 0.02, dSteps = 1, batch = 128;
+let dist = "ring";
+let step = 0;
+let running = false;
+let showSurface = true;
+let lossHist = { g: [], d: [] };
+
+function randn() { let u = Math.random(), v = Math.random(); return Math.sqrt(-2*Math.log(u || 1e-9)) * Math.cos(2*Math.PI*v); }
+function zeros2(r, c) { return Array.from({length:r}, () => Array(c).fill(0)); }
+function he(r, c) { return Array.from({length:r}, () => Array.from({length:c}, () => randn() * Math.sqrt(2/r))); }
+
+function initParams() {
+  Gp = { W1: he(2, H), b1: Array(H).fill(0), W2: he(H, 2), b2: [0,0] };
+  Dp = { W1: he(2, H), b1: Array(H).fill(0), W2: he(H, 1), b2: [0] };
+  Gm = { W1: zeros2(2,H), b1: Array(H).fill(0), W2: zeros2(H,2), b2: [0,0] };
+  Dm = { W1: zeros2(2,H), b1: Array(H).fill(0), W2: zeros2(H,1), b2: [0] };
+  step = 0; lossHist = { g: [], d: [] };
+}
+
+/* ---- target distribution sampler ---- */
+function sampleReal() {
+  let x, y;
+  if (dist === "ring") { const a = Math.random()*Math.PI*2; const r = 0.65 + randn()*0.03; x = r*Math.cos(a); y = r*Math.sin(a); }
+  else if (dist === "moons") {
+    if (Math.random() < 0.5) { const t = Math.random()*Math.PI; x = Math.cos(t)*0.6 - 0.3; y = Math.sin(t)*0.6 - 0.15; }
+    else { const t = Math.random()*Math.PI; x = (1 - Math.cos(t))*0.6 - 0.3; y = (-Math.sin(t))*0.6 + 0.15; }
+    x += randn()*0.02; y += randn()*0.02;
+  }
+  else if (dist === "modes") { const k = Math.floor(Math.random()*8); const a = k/8*Math.PI*2; x = Math.cos(a)*0.65 + randn()*0.05; y = Math.sin(a)*0.65 + randn()*0.05; }
+  else if (dist === "grid") { const gx = (Math.floor(Math.random()*3)-1)*0.55, gy = (Math.floor(Math.random()*3)-1)*0.55; x = gx + randn()*0.04; y = gy + randn()*0.04; }
+  else if (dist === "spiral") { const t = Math.random()*3; const sign = Math.random()<0.5?1:-1; x = sign*t*Math.cos(t*3)*0.22 + randn()*0.02; y = sign*t*Math.sin(t*3)*0.22 + randn()*0.02; }
+  else { x = (Math.random()*2-1)*0.8; y = x*0.5 + randn()*0.04; }
+  return [x, y];
+}
+const MODE_CENTERS = () => {
+  if (dist === "modes") return Array.from({length:8}, (_, k) => [Math.cos(k/8*Math.PI*2)*0.65, Math.sin(k/8*Math.PI*2)*0.65]);
+  if (dist === "grid") { const c = []; for (let i=-1;i<=1;i++) for (let j=-1;j<=1;j++) c.push([i*0.55, j*0.55]); return c; }
+  return null;
+};
+
+/* ---- forward passes (with cache) ---- */
+function leaky(x) { return x > 0 ? x : 0.2*x; }
+function leakyG(x) { return x > 0 ? 1 : 0.2; }
+
+function Gforward(z) {
+  const pre = Array(H), act = Array(H);
+  for (let j = 0; j < H; j++) { let s = Gp.b1[j]; s += Gp.W1[0][j]*z[0] + Gp.W1[1][j]*z[1]; pre[j] = s; act[j] = Math.tanh(s); }
+  const x = [Gp.b2[0], Gp.b2[1]];
+  for (let j = 0; j < H; j++) { x[0] += Gp.W2[j][0]*act[j]; x[1] += Gp.W2[j][1]*act[j]; }
+  return { x, pre, act, z };
+}
+function Dforward(x) {
+  const pre = Array(H), act = Array(H);
+  for (let j = 0; j < H; j++) { let s = Dp.b1[j]; s += Dp.W1[0][j]*x[0] + Dp.W1[1][j]*x[1]; pre[j] = s; act[j] = leaky(s); }
+  let o = Dp.b2[0];
+  for (let j = 0; j < H; j++) o += Dp.W2[j][0]*act[j];
+  const p = 1/(1+Math.exp(-o));
+  return { p, o, pre, act, x };
+}
+
+/* ---- D training step ---- */
+function trainD() {
+  const gW1 = zeros2(2,H), gb1 = Array(H).fill(0), gW2 = zeros2(H,1), gb2 = [0];
+  let loss = 0, dRealSum = 0, dFakeSum = 0;
+  for (let n = 0; n < batch; n++) {
+    // real
+    const xr = sampleReal();
+    const cr = Dforward(xr);
+    dRealSum += cr.p;
+    loss += -Math.log(Math.max(1e-9, cr.p));
+    let dLdo = cr.p - 1; // d(-log p)/do
+    accumD(cr, dLdo, gW1, gb1, gW2, gb2);
+    // fake
+    const z = [randn(), randn()];
+    const gf = Gforward(z);
+    const cf = Dforward(gf.x);
+    dFakeSum += cf.p;
+    loss += -Math.log(Math.max(1e-9, 1 - cf.p));
+    dLdo = cf.p; // d(-log(1-p))/do
+    accumD(cf, dLdo, gW1, gb1, gW2, gb2);
+  }
+  const sc = 1/(2*batch);
+  applyAdamLike(Dp, Dm, { W1: gW1, b1: gb1, W2: gW2, b2: gb2 }, dlr, sc, [[2,H],H,[H,1],1]);
+  return { loss: loss/(2*batch), dReal: dRealSum/batch, dFake: dFakeSum/batch };
+}
+function accumD(cache, dLdo, gW1, gb1, gW2, gb2) {
+  for (let j = 0; j < H; j++) { gW2[j][0] += dLdo * cache.act[j]; }
+  gb2[0] += dLdo;
+  for (let j = 0; j < H; j++) {
+    const dAct = dLdo * Dp.W2[j][0];
+    const dPre = dAct * leakyG(cache.pre[j]);
+    gW1[0][j] += dPre * cache.x[0];
+    gW1[1][j] += dPre * cache.x[1];
+    gb1[j] += dPre;
+  }
+}
+
+/* ---- G training step (non-saturating: maximize log D(G(z))) ---- */
+function trainG() {
+  const gW1 = zeros2(2,H), gb1 = Array(H).fill(0), gW2 = zeros2(H,2), gb2 = [0,0];
+  let loss = 0;
+  for (let n = 0; n < batch; n++) {
+    const z = [randn(), randn()];
+    const gf = Gforward(z);
+    const cf = Dforward(gf.x);
+    loss += -Math.log(Math.max(1e-9, cf.p));
+    const dLdo = -(1 - cf.p); // d(-log p)/do
+    // backprop through D to input x
+    const dx = [0, 0];
+    for (let j = 0; j < H; j++) {
+      const dAct = dLdo * Dp.W2[j][0];
+      const dPre = dAct * leakyG(cf.pre[j]);
+      dx[0] += dPre * Dp.W1[0][j];
+      dx[1] += dPre * Dp.W1[1][j];
+    }
+    // backprop dx through G
+    for (let j = 0; j < H; j++) {
+      gW2[j][0] += dx[0] * gf.act[j];
+      gW2[j][1] += dx[1] * gf.act[j];
+    }
+    gb2[0] += dx[0]; gb2[1] += dx[1];
+    for (let j = 0; j < H; j++) {
+      const dAct = dx[0]*Gp.W2[j][0] + dx[1]*Gp.W2[j][1];
+      const dPre = dAct * (1 - gf.act[j]*gf.act[j]);
+      gW1[0][j] += dPre * z[0];
+      gW1[1][j] += dPre * z[1];
+      gb1[j] += dPre;
+    }
+  }
+  applyAdamLike(Gp, Gm, { W1: gW1, b1: gb1, W2: gW2, b2: gb2 }, glr, 1/batch, [[2,H],H,[H,2],2]);
+  return loss/batch;
+}
+
+/* momentum SGD with clipping */
+function applyAdamLike(P, M, G, lr, sc, shapes) {
+  function upd2(W, Mw, Gw, r, c) {
+    for (let i = 0; i < r; i++) for (let j = 0; j < c; j++) {
+      let g = Gw[i][j] * sc; g = Math.max(-5, Math.min(5, g));
+      Mw[i][j] = 0.9*Mw[i][j] + g;
+      W[i][j] -= lr * Mw[i][j];
+    }
+  }
+  function upd1(b, Mb, Gb, n) {
+    for (let i = 0; i < n; i++) { let g = Gb[i]*sc; g = Math.max(-5, Math.min(5, g)); Mb[i] = 0.9*Mb[i] + g; b[i] -= lr*Mb[i]; }
+  }
+  upd2(P.W1, M.W1, G.W1, shapes[0][0], shapes[0][1]);
+  upd1(P.b1, M.b1, G.b1, shapes[1]);
+  upd2(P.W2, M.W2, G.W2, shapes[2][0], shapes[2][1]);
+  upd1(P.b2, M.b2, G.b2, shapes[3]);
+}
+
+/* ---- full step ---- */
+let lastDiag = { dReal: 0.5, dFake: 0.5 };
+function gptStep() {
+  let dl;
+  for (let i = 0; i < dSteps; i++) dl = trainD();
+  const gl = trainG();
+  step++;
+  lossHist.g.push(gl); lossHist.d.push(dl.loss);
+  if (lossHist.g.length > 200) { lossHist.g.shift(); lossHist.d.shift(); }
+  lastDiag = dl;
+}
+
+/* ---- render ---- */
+const cv = document.getElementById("ganCanvas");
+function W2S(x) { return (x+1)/2; } // world[-1,1] → screen[0,1]
+function render() {
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== cv.offsetWidth*dpr) { cv.width = cv.offsetWidth*dpr; cv.height = cv.offsetHeight*dpr; }
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const Wd = cv.offsetWidth, Hd = cv.offsetHeight;
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,Wd,Hd);
+
+  // D decision surface
+  if (showSurface) {
+    const GS = 44, cell = Wd/GS;
+    for (let i = 0; i < GS; i++) for (let j = 0; j < GS; j++) {
+      const x = (j/GS)*2-1, y = -((i/GS)*2-1);
+      const p = Dforward([x, y]).p;
+      const d = (p - 0.5)*2;
+      let r,g,b;
+      if (d >= 0) { r = Math.floor(255*d); g = Math.floor(212*d); b = 0; }
+      else        { r = Math.floor(255*-d); g = Math.floor(51*-d); b = Math.floor(102*-d); }
+      ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
+      ctx.fillRect(j*cell, i*cell, cell+0.5, cell+0.5);
+    }
+  }
+  // axes
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.beginPath(); ctx.moveTo(Wd/2,0); ctx.lineTo(Wd/2,Hd); ctx.moveTo(0,Hd/2); ctx.lineTo(Wd,Hd/2); ctx.stroke();
+
+  // real samples
+  ctx.fillStyle = "#4dd0ff";
+  for (let n = 0; n < 260; n++) {
+    const [x,y] = sampleReal();
+    ctx.beginPath(); ctx.arc(W2S(x)*Wd, (1-W2S(y))*Hd, 2, 0, 7); ctx.fill();
+  }
+  // fake samples
+  ctx.fillStyle = "#ff3366";
+  const fakes = [];
+  for (let n = 0; n < 260; n++) {
+    const z = [randn(), randn()];
+    const x = Gforward(z).x;
+    fakes.push(x);
+    ctx.beginPath(); ctx.arc(W2S(x[0])*Wd, (1-W2S(x[1]))*Hd, 2, 0, 7); ctx.fill();
+  }
+  // border
+  ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.strokeRect(0.5,0.5,Wd-1,Hd-1);
+
+  // diagnostics
+  document.getElementById("stepR").textContent = step;
+  document.getElementById("dRealR").textContent = lastDiag.dReal.toFixed(2);
+  document.getElementById("dFakeR").textContent = lastDiag.dFake.toFixed(2);
+  document.getElementById("dr2").textContent = lastDiag.dReal.toFixed(3);
+  document.getElementById("df2").textContent = lastDiag.dFake.toFixed(3);
+  // coverage
+  const centers = MODE_CENTERS();
+  if (centers) {
+    let covered = 0;
+    centers.forEach(c => { if (fakes.some(f => Math.hypot(f[0]-c[0], f[1]-c[1]) < 0.18)) covered++; });
+    document.getElementById("coverage").textContent = `${covered}/${centers.length}`;
+    const st = document.getElementById("ganState");
+    if (step < 30) { st.textContent = "warming up"; st.style.color = "var(--text-2)"; }
+    else if (covered <= centers.length/2) { st.textContent = "MODE COLLAPSE"; st.style.color = "var(--fail)"; }
+    else if (covered >= centers.length - 1) { st.textContent = "good coverage"; st.style.color = "var(--ok)"; }
+    else { st.textContent = "partial"; st.style.color = "var(--warn)"; }
+  } else {
+    document.getElementById("coverage").textContent = "—";
+    const st = document.getElementById("ganState");
+    const conv = Math.abs(lastDiag.dReal - 0.5) + Math.abs(lastDiag.dFake - 0.5);
+    if (step < 30) { st.textContent = "warming up"; st.style.color = "var(--text-2)"; }
+    else if (conv < 0.3) { st.textContent = "near equilibrium"; st.style.color = "var(--ok)"; }
+    else { st.textContent = "training"; st.style.color = "var(--warn)"; }
+  }
+  drawLoss();
+}
+
+function drawLoss() {
+  const c = document.getElementById("lossChart");
+  const ctx = c.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  c.width = c.offsetWidth*dpr; c.height = c.offsetHeight*dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const Wd = c.offsetWidth, Hd = c.offsetHeight;
+  ctx.clearRect(0,0,Wd,Hd);
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  for (let i = 0; i <= 4; i++) { const y = i/4*(Hd-10)+5; ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(Wd,y); ctx.stroke(); }
+  const all = [...lossHist.g, ...lossHist.d];
+  if (all.length < 2) return;
+  const mx = Math.max(...all, 1.6);
+  function line(arr, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+    arr.forEach((v, i) => { const x = i/(arr.length-1)*Wd, y = Hd-5 - (v/mx)*(Hd-12); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+  }
+  line(lossHist.d, "#ff3366");
+  line(lossHist.g, "#ffd400");
+}
+
+/* loop */
+function loop() {
+  if (running) { for (let k = 0; k < 2; k++) gptStep(); }
+  render();
+  requestAnimationFrame(loop);
+}
+
+/* events */
+document.querySelectorAll("[data-dist]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-dist]").forEach(x=>x.classList.remove("primary"));
+  b.classList.add("primary"); dist = b.dataset.dist; initParams();
+}));
+document.getElementById("glr").addEventListener("input", e => { glr = Math.pow(10, +e.target.value); document.getElementById("glrV").textContent = glr.toFixed(3); });
+document.getElementById("dlr").addEventListener("input", e => { dlr = Math.pow(10, +e.target.value); document.getElementById("dlrV").textContent = dlr.toFixed(3); });
+document.getElementById("dsteps").addEventListener("input", e => { dSteps = +e.target.value; document.getElementById("dstepsV").textContent = dSteps; });
+document.getElementById("batch").addEventListener("input", e => { batch = +e.target.value; document.getElementById("batchV").textContent = batch; });
+document.getElementById("playBtn").addEventListener("click", e => { running = !running; e.target.textContent = running ? "❚❚ PAUSE" : "▶ TRAIN"; });
+document.getElementById("stepBtn").addEventListener("click", () => { for (let k=0;k<5;k++) gptStep(); render(); });
+document.getElementById("resetBtn").addEventListener("click", () => { initParams(); render(); });
+document.querySelectorAll("#surfTog button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#surfTog button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); showSurface = b.dataset.v === "on";
+}));
+
+// default-select ring
+document.querySelector('[data-dist="ring"]').classList.add("primary");
+initParams();
+running = true; document.getElementById("playBtn").textContent = "❚❚ PAUSE";
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

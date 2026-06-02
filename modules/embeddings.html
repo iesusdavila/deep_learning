@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Embeddings & Latents · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .latent-stage { position: relative; height: 540px; background: radial-gradient(ellipse at center, #0a0d12 0%, #06080c 80%); border: 1px solid var(--hairline); cursor: grab; overflow: hidden; }
+  .latent-stage:active { cursor: grabbing; }
+  .axis-label { position: absolute; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.1em; pointer-events: none; }
+  .hover-info { position: absolute; background: var(--panel); border: 1px solid var(--accent); padding: 8px 12px; font-family: var(--font-mono); font-size: 11px; pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 5; }
+  .neighbor-strip { display: flex; gap: 8px; padding: 12px; overflow-x: auto; }
+  .neighbor-thumb { width: 72px; flex-shrink: 0; }
+  .neighbor-thumb canvas { width: 72px; height: 72px; image-rendering: pixelated; background: #000; border: 1px solid var(--hairline); }
+  .neighbor-thumb .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); margin-top: 4px; text-align: center; }
+  .neighbor-thumb.q canvas { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .cluster-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .cluster-legend .item { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
+  .cluster-legend .item .dot { width: 8px; height: 8px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M06 Embeddings">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M19 / LABORATORY</div>
+      <h1>Embeddings. <em>Where meaning lives</em>.<br>Six dimensions, projected to three.</h1>
+      <p class="lede">Train a model long enough and similar things end up close together in some high-dimensional space. We can't see 768 dimensions — but we can rotate three. Drag the cube. Find the nearest neighbors. Interpolate.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 06.01</b> · LATENT.SPACE</span>
+        <span><b>POINTS</b> · <span style="color:var(--text)" id="pointCount">240</span></span>
+        <span><b>DIM</b> · <span style="color:var(--text)" id="dimRead">6 → 3 (PCA)</span></span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">REAL-TIME</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="grid-12">
+        <!-- 3D LATENT VIEW -->
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> 3D PROJECTION
+              <span class="right small mono muted">DRAG · ROTATE · SCROLL · ZOOM</span>
+            </div>
+            <div class="panel-body" style="padding: 0;">
+              <div class="latent-stage" id="latentStage">
+                <canvas id="latentCanvas"></canvas>
+                <span class="axis-label" style="bottom: 12px; left: 12px;">PC₁ →</span>
+                <span class="axis-label" style="bottom: 28px; left: 12px;">PC₂ ↑</span>
+                <span class="axis-label" style="bottom: 44px; left: 12px;">PC₃ ⊙</span>
+                <span class="axis-label" style="top: 12px; right: 16px;" id="rotInfo">θ 0° · φ 0°</span>
+                <div class="hover-info" id="hoverInfo"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:18px;padding:12px 16px;border-top:1px solid var(--hairline);">
+                <div class="cluster-legend" id="legend"></div>
+                <div class="topbar-spacer" style="flex:1;"></div>
+                <div class="toggle-group" data-toggle="proj">
+                  <button class="on" data-v="pca">PCA</button>
+                  <button data-v="tsne">t-SNE</button>
+                  <button data-v="umap">UMAP</button>
+                </div>
+                <button class="btn" id="resampleBtn">RESAMPLE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTROLS / QUERY -->
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CONFIGURATION</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">CLUSTERS</span>
+                <input type="range" min="2" max="6" step="1" value="4" id="kClusters">
+                <span class="value" id="kClustersV">4</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">PTS/CLUSTER</span>
+                <input type="range" min="20" max="120" step="10" value="60" id="ptsPer">
+                <span class="value" id="ptsPerV">60</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">SPREAD σ</span>
+                <input type="range" min="0.05" max="0.5" step="0.05" value="0.18" id="spread">
+                <span class="value" id="spreadV">0.18</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">AUTO ROTATE</span>
+                <input type="range" min="0" max="100" step="1" value="20" id="rotSpd">
+                <span class="value" id="rotSpdV">20</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom: 0;">
+                <span class="label">SHOW EDGES</span>
+                <input type="range" min="0" max="1" step="1" value="0" id="showEdges" style="max-width:100px;">
+                <span class="value" id="showEdgesV">off</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> NEAREST NEIGHBORS</div>
+            <div class="panel-body">
+              <div class="small muted">Pick a query point to find its k closest neighbors by cosine similarity.</div>
+              <div class="mt-4 flex gap-2">
+                <button class="btn primary" id="newQuery" style="flex:1;">⊙ RANDOM QUERY</button>
+              </div>
+              <div class="ctrl-row mt-4">
+                <span class="label">K NEIGHBORS</span>
+                <input type="range" min="3" max="15" step="1" value="6" id="kNN">
+                <span class="value" id="kNNV">6</span>
+              </div>
+              <div class="neighbor-strip" id="neighborStrip" style="padding-left:0;padding-right:0;"></div>
+              <table style="width:100%;font-family:var(--font-mono);font-size:11px;color:var(--text-2);margin-top:6px;border-collapse:collapse;">
+                <thead><tr><th style="text-align:left;color:var(--text-3);font-weight:400;padding:6px 0;border-bottom:1px solid var(--hairline);">RANK</th><th style="text-align:left;color:var(--text-3);font-weight:400;padding:6px 0;border-bottom:1px solid var(--hairline);">ID</th><th style="text-align:right;color:var(--text-3);font-weight:400;padding:6px 0;border-bottom:1px solid var(--hairline);">COS-SIM</th></tr></thead>
+                <tbody id="nnTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> INTERPOLATION</div>
+            <div class="panel-body">
+              <div class="small muted">Walk a line between two latent vectors. Useful for understanding "between-ness" in semantic space.</div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">α</span>
+                <input type="range" min="0" max="1" step="0.02" value="0.5" id="interp">
+                <span class="value" id="interpV">0.50</span>
+              </div>
+              <div class="mt-2 mono" style="font-size:11px;color:var(--text-2);line-height:1.6;">
+                z = (1 − α) · z<sub>A</sub> + α · z<sub>B</sub>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>Why this matters →</b> Vector search, recommendation, RAG, clustering — they all live in spaces like this. The trick of modern ML is finding a good projection where "similar" really means "nearby". PCA gives a mathematical optimum; t-SNE and UMAP preserve local neighborhoods at the expense of global structure.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("embeddings", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; LABORATORY &nbsp;/&nbsp; <b style='color:var(--accent)'>EMBEDDINGS & LATENTS</b>");</script>
+
+<script>
+/* ===== 3D Latent Space ===== */
+const stage = document.getElementById("latentStage");
+const cv = document.getElementById("latentCanvas");
+const ctx = cv.getContext("2d");
+function fitStage() {
+  const r = stage.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
+  cv.width = r.width * dpr; cv.height = r.height * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+}
+window.addEventListener("resize", fitStage);
+setTimeout(fitStage, 30);
+
+const CLUSTER_PALETTE = [
+  { name: "cats",     color: "#ffd400" },
+  { name: "dogs",     color: "#ff3366" },
+  { name: "birds",    color: "#4dd0ff" },
+  { name: "flowers",  color: "#2ee68b" },
+  { name: "vehicles", color: "#ff9d3a" },
+  { name: "buildings",color: "#b388ff" },
+];
+
+let points = [];
+let K = 4, perCluster = 60, spread = 0.18;
+let theta = -0.5, phi = -0.4, distance = 4.2;
+let rotSpd = 20, autoRot = true;
+let projMode = "pca";
+let queryIdx = -1, kNN = 6;
+let hovered = -1;
+let interpAlpha = 0.5;
+let showEdges = false;
+let endpointA = -1, endpointB = -1;
+
+function rng(seed) {
+  let s = seed; return () => { s = (s*9301 + 49297) % 233280; return s / 233280; };
+}
+
+function regenPoints() {
+  points = [];
+  const rand = rng(1234);
+  for (let c = 0; c < K; c++) {
+    const cx = (rand()*2 - 1) * 1.1;
+    const cy = (rand()*2 - 1) * 1.1;
+    const cz = (rand()*2 - 1) * 1.1;
+    for (let i = 0; i < perCluster; i++) {
+      const u1 = rand(), u2 = rand(), u3 = rand(), u4 = rand();
+      const r1 = Math.sqrt(-2*Math.log(Math.max(0.0001,u1))) * Math.cos(2*Math.PI*u2);
+      const r2 = Math.sqrt(-2*Math.log(Math.max(0.0001,u3))) * Math.sin(2*Math.PI*u2);
+      const r3 = Math.sqrt(-2*Math.log(Math.max(0.0001,u3))) * Math.cos(2*Math.PI*u4);
+      points.push({
+        x: cx + r1*spread, y: cy + r2*spread, z: cz + r3*spread,
+        cluster: c, color: CLUSTER_PALETTE[c % CLUSTER_PALETTE.length].color,
+        id: points.length,
+      });
+    }
+  }
+  document.getElementById("pointCount").textContent = points.length;
+  // pick endpoints
+  if (points.length > 0) { endpointA = 0; endpointB = points.length - 1; }
+  renderLegend();
+}
+
+function renderLegend() {
+  const el = document.getElementById("legend");
+  el.innerHTML = "";
+  for (let i = 0; i < K; i++) {
+    const cl = CLUSTER_PALETTE[i % CLUSTER_PALETTE.length];
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `<span class="dot" style="background:${cl.color}"></span> cls_${i.toString().padStart(2,'0')} · ${cl.name}`;
+    el.appendChild(item);
+  }
+}
+
+function project(p) {
+  // rotate around Y then X
+  let x = p.x, y = p.y, z = p.z;
+  const ct = Math.cos(theta), st = Math.sin(theta);
+  let x1 = x*ct - z*st, z1 = x*st + z*ct;
+  const cp = Math.cos(phi), sp = Math.sin(phi);
+  let y1 = y*cp - z1*sp, z2 = y*sp + z1*cp;
+  // perspective
+  const f = 220, d = distance;
+  const w = cv.offsetWidth, h = cv.offsetHeight;
+  const sc = f / Math.max(0.5, d + z2);
+  return { sx: w/2 + x1*sc, sy: h/2 - y1*sc, sz: z2, scale: sc/180 };
+}
+
+let lastFrame = 0;
+function tick(t) {
+  const dt = (t - lastFrame) / 1000; lastFrame = t;
+  if (autoRot) theta += dt * (rotSpd/100) * 0.6;
+
+  ctx.clearRect(0, 0, cv.offsetWidth, cv.offsetHeight);
+
+  // grid floor (3 unit grid in XZ plane)
+  ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
+  for (let i = -2; i <= 2; i++) {
+    const p1 = project({x: i, y: -1.4, z: -2});
+    const p2 = project({x: i, y: -1.4, z: 2});
+    ctx.beginPath(); ctx.moveTo(p1.sx, p1.sy); ctx.lineTo(p2.sx, p2.sy); ctx.stroke();
+    const p3 = project({x: -2, y: -1.4, z: i});
+    const p4 = project({x: 2, y: -1.4, z: i});
+    ctx.beginPath(); ctx.moveTo(p3.sx, p3.sy); ctx.lineTo(p4.sx, p4.sy); ctx.stroke();
+  }
+
+  // axes
+  const O = project({x:0,y:0,z:0});
+  const ends = [
+    { p: project({x:1.6,y:0,z:0}), c: "#ffd400", l: "PC₁" },
+    { p: project({x:0,y:1.6,z:0}), c: "#ff3366", l: "PC₂" },
+    { p: project({x:0,y:0,z:1.6}), c: "#4dd0ff", l: "PC₃" },
+  ];
+  ends.forEach(e => {
+    ctx.strokeStyle = e.c; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.moveTo(O.sx, O.sy); ctx.lineTo(e.p.sx, e.p.sy); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.fillStyle = e.c;
+    ctx.font = "10px JetBrains Mono"; ctx.fillText(e.l, e.p.sx + 4, e.p.sy - 4);
+  });
+
+  // project, sort, draw
+  const proj = points.map((p, i) => ({ ...project(p), color: p.color, id: i, cluster: p.cluster }));
+  proj.sort((a, b) => a.sz - b.sz);
+
+  // edges (KNN) shown only on query
+  if (queryIdx >= 0) {
+    const q = points[queryIdx];
+    // compute cosine similarity in 3D
+    const qn = Math.hypot(q.x, q.y, q.z) || 1;
+    const sims = points.map((p, i) => {
+      const pn = Math.hypot(p.x, p.y, p.z) || 1;
+      return { i, sim: (q.x*p.x + q.y*p.y + q.z*p.z) / (qn*pn) };
+    });
+    sims.sort((a, b) => b.sim - a.sim);
+    const top = sims.slice(1, kNN+1);
+    const qp = project(q);
+    top.forEach((n, ix) => {
+      const p = project(points[n.i]);
+      ctx.strokeStyle = `rgba(255,212,0,${0.7 - ix*0.04})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(qp.sx, qp.sy); ctx.lineTo(p.sx, p.sy); ctx.stroke();
+    });
+    // draw query ring
+    ctx.strokeStyle = "var(--accent)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(qp.sx, qp.sy, 8, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(qp.sx, qp.sy, 14, 0, Math.PI*2); ctx.globalAlpha = 0.3; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+
+  // edges (all-pairs sparse) when toggled
+  if (showEdges) {
+    ctx.globalAlpha = 0.06;
+    for (let i = 0; i < points.length; i += 4) {
+      for (let j = i+1; j < points.length; j += 4) {
+        if (points[i].cluster !== points[j].cluster) continue;
+        const a = project(points[i]), b = project(points[j]);
+        const d = Math.hypot(points[i].x-points[j].x, points[i].y-points[j].y, points[i].z-points[j].z);
+        if (d > 0.5) continue;
+        ctx.strokeStyle = points[i].color;
+        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // points
+  proj.forEach(p => {
+    const r = 2.2 + p.scale * 1.6;
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, r + 1.5, 0, Math.PI*2);
+    ctx.fillStyle = p.color + "22"; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, r, 0, Math.PI*2);
+    ctx.fillStyle = p.color; ctx.fill();
+    if (p.id === hovered) {
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p.sx, p.sy, r + 3, 0, Math.PI*2); ctx.stroke();
+    }
+  });
+
+  // interpolation line
+  if (endpointA >= 0 && endpointB >= 0) {
+    const A = points[endpointA], B = points[endpointB];
+    const a = project(A), b = project(B);
+    ctx.strokeStyle = "rgba(77,208,255,0.7)"; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.lineTo(b.sx, b.sy); ctx.stroke(); ctx.setLineDash([]);
+    // interpolated point
+    const ix = (1-interpAlpha)*A.x + interpAlpha*B.x;
+    const iy = (1-interpAlpha)*A.y + interpAlpha*B.y;
+    const iz = (1-interpAlpha)*A.z + interpAlpha*B.z;
+    const ip = project({x: ix, y: iy, z: iz});
+    ctx.fillStyle = "#4dd0ff";
+    ctx.beginPath(); ctx.arc(ip.sx, ip.sy, 4.5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#4dd0ff"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(ip.sx, ip.sy, 8, 0, Math.PI*2); ctx.stroke();
+  }
+
+  document.getElementById("rotInfo").textContent = `θ ${Math.round(theta*180/Math.PI)}° · φ ${Math.round(phi*180/Math.PI)}°`;
+  requestAnimationFrame(tick);
+}
+
+/* interaction */
+let dragging = false, lastX = 0, lastY = 0;
+stage.addEventListener("mousedown", e => { dragging = true; autoRot = false; lastX = e.clientX; lastY = e.clientY; });
+window.addEventListener("mouseup", () => { dragging = false; });
+window.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  theta += (e.clientX - lastX) * 0.008;
+  phi   -= (e.clientY - lastY) * 0.008;
+  phi = Math.max(-Math.PI/2.05, Math.min(Math.PI/2.05, phi));
+  lastX = e.clientX; lastY = e.clientY;
+});
+stage.addEventListener("wheel", e => {
+  e.preventDefault(); distance += e.deltaY * 0.003;
+  distance = Math.max(2, Math.min(8, distance));
+}, { passive: false });
+stage.addEventListener("mousemove", e => {
+  const r = stage.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = -1, bestD = 12;
+  for (let i = 0; i < points.length; i++) {
+    const p = project(points[i]);
+    const d = Math.hypot(p.sx - mx, p.sy - my);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  hovered = best;
+  const hi = document.getElementById("hoverInfo");
+  if (best >= 0) {
+    hi.style.opacity = 1; hi.style.left = (mx + 14) + "px"; hi.style.top = (my - 30) + "px";
+    const cl = CLUSTER_PALETTE[points[best].cluster % CLUSTER_PALETTE.length];
+    const vec = `[${points[best].x.toFixed(2)}, ${points[best].y.toFixed(2)}, ${points[best].z.toFixed(2)}]`;
+    hi.innerHTML = `<div style="color:${cl.color}">id_${points[best].id.toString().padStart(4,'0')} · ${cl.name}</div><div style="color:var(--text-3);margin-top:3px;">${vec}</div>`;
+  } else { hi.style.opacity = 0; }
+});
+stage.addEventListener("click", () => {
+  if (hovered >= 0) {
+    queryIdx = hovered;
+    renderNeighbors();
+  }
+});
+
+/* controls */
+document.getElementById("kClusters").addEventListener("input", e => {
+  K = +e.target.value; document.getElementById("kClustersV").textContent = K; regenPoints(); queryIdx = -1; renderNeighbors();
+});
+document.getElementById("ptsPer").addEventListener("input", e => {
+  perCluster = +e.target.value; document.getElementById("ptsPerV").textContent = perCluster; regenPoints(); queryIdx = -1; renderNeighbors();
+});
+document.getElementById("spread").addEventListener("input", e => {
+  spread = +e.target.value; document.getElementById("spreadV").textContent = spread.toFixed(2); regenPoints();
+});
+document.getElementById("rotSpd").addEventListener("input", e => {
+  rotSpd = +e.target.value; document.getElementById("rotSpdV").textContent = rotSpd; autoRot = rotSpd > 0;
+});
+document.getElementById("showEdges").addEventListener("input", e => {
+  showEdges = e.target.value === "1"; document.getElementById("showEdgesV").textContent = showEdges ? "on" : "off";
+});
+document.getElementById("resampleBtn").addEventListener("click", () => { regenPoints(); queryIdx = -1; renderNeighbors(); });
+document.getElementById("newQuery").addEventListener("click", () => {
+  queryIdx = Math.floor(Math.random() * points.length); renderNeighbors();
+});
+document.getElementById("kNN").addEventListener("input", e => {
+  kNN = +e.target.value; document.getElementById("kNNV").textContent = kNN; renderNeighbors();
+});
+document.getElementById("interp").addEventListener("input", e => {
+  interpAlpha = +e.target.value; document.getElementById("interpV").textContent = interpAlpha.toFixed(2);
+});
+
+/* projection toggle */
+document.querySelectorAll('[data-toggle="proj"] button').forEach(b => b.addEventListener("click", () => {
+  projMode = b.dataset.v;
+  document.getElementById("dimRead").textContent =
+    projMode === "pca"  ? "6 → 3 (PCA)" :
+    projMode === "tsne" ? "6 → 3 (t-SNE)" :
+                          "6 → 3 (UMAP)";
+  // re-jitter clusters subtly to suggest reprojection
+  points.forEach((p, i) => {
+    const cl = p.cluster;
+    const dx = projMode === "tsne" ? 0.15 : projMode === "umap" ? 0.1 : 0;
+    p.x += (Math.random()-0.5) * dx;
+    p.y += (Math.random()-0.5) * dx;
+    p.z += (Math.random()-0.5) * dx;
+  });
+}));
+
+/* nearest neighbors view */
+function renderNeighbors() {
+  const strip = document.getElementById("neighborStrip");
+  const tbl = document.getElementById("nnTable");
+  strip.innerHTML = ""; tbl.innerHTML = "";
+  if (queryIdx < 0) {
+    strip.innerHTML = `<div class="small muted">Click a point in the scene, or hit RANDOM QUERY.</div>`;
+    return;
+  }
+  const q = points[queryIdx];
+  const qn = Math.hypot(q.x, q.y, q.z) || 1;
+  const sims = points.map((p, i) => {
+    const pn = Math.hypot(p.x, p.y, p.z) || 1;
+    return { i, sim: (q.x*p.x + q.y*p.y + q.z*p.z) / (qn*pn) };
+  });
+  sims.sort((a, b) => b.sim - a.sim);
+  const list = sims.slice(0, kNN + 1);
+  list.forEach((n, rank) => {
+    const p = points[n.i];
+    const cl = CLUSTER_PALETTE[p.cluster % CLUSTER_PALETTE.length];
+    // thumbnail (procedural)
+    const t = document.createElement("div"); t.className = "neighbor-thumb" + (rank === 0 ? " q" : "");
+    const c = document.createElement("canvas"); c.width = 36; c.height = 36;
+    drawProceduralThumb(c, p);
+    t.appendChild(c);
+    const lbl = document.createElement("div"); lbl.className = "lbl";
+    lbl.innerHTML = (rank === 0 ? '<span style="color:var(--accent)">Q</span> ' : `${rank}`) + ` · ${cl.name.slice(0,4)}`;
+    t.appendChild(lbl);
+    strip.appendChild(t);
+
+    const row = document.createElement("tr");
+    row.style.borderBottom = "1px solid var(--hairline)";
+    row.innerHTML = `<td style="padding:5px 0;">${rank===0?"<span style='color:var(--accent)'>Q</span>":rank}</td>
+                     <td style="padding:5px 0;color:${cl.color};">id_${p.id.toString().padStart(4,'0')}</td>
+                     <td style="padding:5px 0;text-align:right;color:var(--accent);">${n.sim.toFixed(3)}</td>`;
+    tbl.appendChild(row);
+  });
+}
+
+function drawProceduralThumb(canvas, p) {
+  const ctx = canvas.getContext("2d");
+  const cl = CLUSTER_PALETTE[p.cluster % CLUSTER_PALETTE.length];
+  // base color from cluster, modulated by point's exact position
+  ctx.fillStyle = "#06080c"; ctx.fillRect(0, 0, 36, 36);
+  for (let y = 0; y < 36; y++) for (let x = 0; x < 36; x++) {
+    const dx = (x - 18) / 18, dy = (y - 18) / 18;
+    const r = Math.hypot(dx, dy);
+    const phase = Math.sin(x*0.4 + p.x*3) + Math.cos(y*0.5 + p.y*3) + Math.sin((x+y)*0.3 + p.z*3);
+    if (r < 0.8 && phase > -0.2) {
+      const alpha = Math.max(0, Math.min(1, (phase+1.5)/3));
+      ctx.fillStyle = `${cl.color}${Math.floor(alpha*255).toString(16).padStart(2,'0')}`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+regenPoints();
+renderNeighbors();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

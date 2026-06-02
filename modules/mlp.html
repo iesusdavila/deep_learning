@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>The MLP · step-by-step · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .phase-rail { display:flex; gap:0; border:1px solid var(--hairline); overflow:hidden; }
+  .phase-rail .p { flex:1; padding:8px 6px; text-align:center; font-family:var(--font-mono); font-size:10px; letter-spacing:0.04em; color:var(--text-3); border-right:1px solid var(--hairline); position:relative; transition:color .2s, background .2s; }
+  .phase-rail .p:last-child { border-right:0; }
+  .phase-rail .p.active { color:var(--void); background:var(--accent); }
+  .phase-rail .p.active.back { background:var(--magenta); color:#fff; }
+  .phase-rail .p .bar { position:absolute; left:0; bottom:0; height:2px; background:rgba(0,0,0,0.35); width:0; }
+  .calc { font-family:var(--font-mono); font-size:13px; line-height:1.85; }
+  .calc .eq { padding:7px 0; border-bottom:1px dashed var(--hairline); }
+  .calc .eq:last-child { border-bottom:0; }
+  .calc .lhs { color:var(--accent); }
+  .calc .lhs.back { color:var(--magenta); }
+  .calc .sub { color:var(--text-2); }
+  .calc .res { color:var(--text); font-weight:600; background:var(--accent-dim); padding:0 4px; }
+  .calc .note { color:var(--text-3); font-size:11px; }
+  .gauge-wrap { position:relative; height:30px; background:var(--raised); border:1px solid var(--hairline); overflow:hidden; }
+  .gauge-fill { position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg, var(--magenta), var(--accent)); }
+  .gauge-target { position:absolute; top:-3px; bottom:-3px; width:2px; background:#fff; }
+  .wtbl { width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:11px; }
+  .wtbl td { padding:4px 8px; border-bottom:1px solid var(--hairline); }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M08 MLP">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M08 / FOUNDATIONS</div>
+      <h1>The MLP. <em>Watch one training step</em><br>flow through the network.</h1>
+      <p class="lede">The multi-layer perceptron is the atom of deep learning. Here a tiny 2→2→1 network trains in front of you: the signal flows <span style="color:var(--accent)">forward</span> (yellow), the error flows <span style="color:var(--magenta)">backward</span> (magenta), weights update, the loss drops. Every number is shown in sync with the animation — nothing hidden.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 08.01</b> · MLP.TRACE</span>
+        <span><b>NET</b> · 2 → 2 → 1 · sigmoid</span>
+        <span><b>LOSS</b> · ½(ŷ−y)²</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- phase rail -->
+      <div class="phase-rail mb-4" id="phaseRail"></div>
+
+      <div class="grid-12">
+        <!-- network animation -->
+        <div class="span-8">
+          <div class="panel ticks" style="position:relative;">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot" id="phaseDot"></span> <span id="phaseTitle">FORWARD · hidden layer</span>
+              <span class="right small mono muted" id="cycleLabel">cycle 1</span>
+            </div>
+            <div class="panel-body" style="padding:0;">
+              <canvas id="net" width="720" height="440" style="width:100%;aspect-ratio:720/440;background:#06080c;display:block;"></canvas>
+            </div>
+          </div>
+
+          <!-- prediction gauge + controls row -->
+          <div class="grid-2 mt-6" style="grid-template-columns:1fr 1fr;gap:24px;">
+            <div class="panel">
+              <div class="panel-head"><span class="dot"></span> PREDICTION ŷ vs TARGET y</div>
+              <div class="panel-body">
+                <div class="gauge-wrap"><div class="gauge-fill" id="gaugeFill" style="width:50%;"></div><div class="gauge-target" id="gaugeTarget" style="left:90%;"></div></div>
+                <div class="flex between mt-2 mono" style="font-size:11px;">
+                  <span>ŷ = <span style="color:var(--accent)" id="gaugeYhat">0.50</span></span>
+                  <span>error = <span style="color:var(--magenta)" id="gaugeErr">0.40</span></span>
+                  <span>target = <span style="color:var(--text)" id="gaugeY">0.90</span></span>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> LOSS over cycles</div>
+              <div class="panel-body"><canvas id="lossChart" width="400" height="96" style="width:100%;height:96px;background:#06080c;"></canvas>
+                <div class="mono mt-2" style="font-size:11px;">loss <span style="color:var(--magenta)" id="lossNow">—</span> · step <span style="color:var(--accent)" id="stepN">0</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- right column: calc + controls -->
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> THIS PHASE · the math</div>
+            <div class="panel-body"><div class="calc" id="calc"></div></div>
+          </div>
+
+          <div class="panel mt-6 ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CONTROLS</div>
+            <div class="panel-body">
+              <div class="flex gap-2 mb-4">
+                <button class="btn primary" id="playBtn" style="flex:1;">❚❚ PAUSE</button>
+                <button class="btn" id="stepBtn">STEP ▶</button>
+                <button class="btn" id="resetBtn">⟲</button>
+              </div>
+              <div class="ctrl-row"><span class="label">SPEED</span><input type="range" min="0.3" max="3" step="0.1" value="1" id="speed"><span class="value" id="speedV">1.0×</span></div>
+              <div class="ctrl-row"><span class="label">lr η</span><input type="range" min="0.5" max="6" step="0.1" value="3" id="lr"><span class="value" id="lrV">3.0</span></div>
+              <div class="ctrl-row"><span class="label">x₁</span><input type="range" min="0" max="1" step="0.05" value="0.10" id="x1"><span class="value" id="x1V">0.10</span></div>
+              <div class="ctrl-row"><span class="label">x₂</span><input type="range" min="0" max="1" step="0.05" value="0.30" id="x2"><span class="value" id="x2V">0.30</span></div>
+              <div class="ctrl-row" style="border-bottom:0;"><span class="label">target y</span><input type="range" min="0.05" max="0.95" step="0.05" value="0.90" id="ty"><span class="value" id="tyV">0.90</span></div>
+              <button class="btn w-full mt-2" id="randW">⟳ RE-INITIALIZE WEIGHTS</button>
+            </div>
+          </div>
+
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> WEIGHTS <span class="right small mono muted">live</span></div>
+            <div class="panel-body" style="padding:0;"><table class="wtbl" id="wtbl"></table></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-6">
+        <b>On weight initialization →</b> notice the weights start as <em>small random</em> numbers (Xavier-style: scaled by 1/√fan-in), never zero. If every weight were identical, all hidden neurons would compute the same thing and receive the same gradient forever — they'd never differentiate. Random init breaks that symmetry. Hit <span class="mono">RE-INITIALIZE</span> to draw a fresh set and watch training restart.
+      </div>
+      <div class="callout mt-4">
+        <b>This is the entire algorithm.</b> Forward → loss → backprop → update, on repeat. A real network does exactly this with millions of weights over millions of examples. To see it train on a real dataset as a living diagram, open <a href="../modules/training-mlp.html" style="color:var(--accent);">Training MLP</a> in the Laboratory.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("mlp", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; FOUNDATIONS &nbsp;/&nbsp; <b style='color:var(--accent)'>THE MLP</b>");</script>
+
+<script>
+/* ===== params ===== */
+let x1=0.10, x2=0.30, ty=0.90, lr=3.0, speed=1;
+let W = {};
+function xavier(fanIn){ return (Math.random()*2-1) * Math.sqrt(1/fanIn); }
+function initW(){
+  W = { w1:xavier(2), w2:xavier(2), w3:xavier(2), w4:xavier(2), b1:0, b2:0, w5:xavier(2), w6:xavier(2), b3:0 };
+}
+const sig = z => 1/(1+Math.exp(-z));
+
+function forward(Wt){
+  const zh1=Wt.w1*x1+Wt.w2*x2+Wt.b1, zh2=Wt.w3*x1+Wt.w4*x2+Wt.b2;
+  const ah1=sig(zh1), ah2=sig(zh2);
+  const zo=Wt.w5*ah1+Wt.w6*ah2+Wt.b3, yh=sig(zo);
+  const L=0.5*(yh-ty)**2;
+  return {zh1,zh2,ah1,ah2,zo,yh,L};
+}
+function backward(Wt,f){
+  const dO=(f.yh-ty)*f.yh*(1-f.yh);
+  const dw5=dO*f.ah1, dw6=dO*f.ah2, db3=dO;
+  const dH1=dO*Wt.w5*f.ah1*(1-f.ah1), dH2=dO*Wt.w6*f.ah2*(1-f.ah2);
+  const dw1=dH1*x1, dw2=dH1*x2, db1=dH1, dw3=dH2*x1, dw4=dH2*x2, db2=dH2;
+  return {dO,dw5,dw6,db3,dH1,dH2,dw1,dw2,db1,dw3,dw4,db2};
+}
+const f4=n=>n.toFixed(4), f3=n=>n.toFixed(3);
+
+/* ===== cycle state ===== */
+let oldW, cyc, stepN=0, lossHist=[];
+function startCycle(){
+  oldW = {...W};
+  const f=forward(W); const b=backward(W,f);
+  cyc={f,b};
+  lossHist.push(f.L); if(lossHist.length>160)lossHist.shift();
+  document.getElementById("lossNow").textContent=f4(f.L);
+  document.getElementById("stepN").textContent=stepN;
+}
+function commitUpdate(){
+  const b=cyc.b;
+  W.w1-=lr*b.dw1; W.w2-=lr*b.dw2; W.w3-=lr*b.dw3; W.w4-=lr*b.dw4;
+  W.b1-=lr*b.db1; W.b2-=lr*b.db2; W.w5-=lr*b.dw5; W.w6-=lr*b.dw6; W.b3-=lr*b.db3;
+  stepN++;
+}
+
+/* ===== phases ===== */
+const PHASES=[
+  {id:"f1", name:"FORWARD · hidden", dur:1500, back:false},
+  {id:"f2", name:"FORWARD · output", dur:1300, back:false},
+  {id:"loss", name:"LOSS", dur:1100, back:false},
+  {id:"b1", name:"BACKWARD · output", dur:1500, back:true},
+  {id:"b2", name:"BACKWARD · hidden", dur:1500, back:true},
+  {id:"up", name:"UPDATE weights", dur:1500, back:true},
+];
+let phaseIdx=0, phaseProg=0, playing=true, lastT=0;
+
+function buildRail(){
+  const r=document.getElementById("phaseRail"); r.innerHTML="";
+  PHASES.forEach((p,i)=>{const d=document.createElement("div");d.className="p"+(p.back?" back-phase":"");d.dataset.i=i;d.innerHTML=`${p.name}<div class="bar"></div>`;d.addEventListener("click",()=>{playing=false;document.getElementById("playBtn").textContent="▶ PLAY";phaseIdx=i;phaseProg=0;});r.appendChild(d);});
+}
+function updateRail(){
+  document.querySelectorAll("#phaseRail .p").forEach((el,i)=>{
+    el.classList.toggle("active",i===phaseIdx);
+    el.classList.toggle("back",PHASES[i].back && i===phaseIdx);
+    el.querySelector(".bar").style.width=(i===phaseIdx?phaseProg*100:i<phaseIdx?100:0)+"%";
+  });
+}
+
+/* ===== geometry ===== */
+function nodes(W2,H2){
+  const cx=[70, W2/2, W2-80];
+  return {
+    inp:[{x:cx[0],y:H2*0.34,l:"x₁",v:x1},{x:cx[0],y:H2*0.66,l:"x₂",v:x2}],
+    hid:[{x:cx[1],y:H2*0.34,l:"h₁"},{x:cx[1],y:H2*0.66,l:"h₂"}],
+    out:[{x:cx[2],y:H2*0.5,l:"ŷ"}],
+  };
+}
+function dispW(){
+  // during update phase, lerp old→new
+  if(PHASES[phaseIdx].id==="up"){
+    const nw={}; for(const k in W) nw[k]=oldW[k]-lr*cyc.b["d"+({w1:"w1",w2:"w2",w3:"w3",w4:"w4",b1:"b1",b2:"b2",w5:"w5",w6:"w6",b3:"b3"})[k]];
+    const t=phaseProg; const out={}; for(const k in oldW) out[k]=oldW[k]+(nw[k]-oldW[k])*t; return out;
+  }
+  return oldW || W;
+}
+
+/* ===== draw ===== */
+const cv=document.getElementById("net");
+function draw(){
+  const ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1; cv.width=cv.offsetWidth*dpr; cv.height=cv.offsetHeight*dpr; ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W2=cv.offsetWidth,H2=cv.offsetHeight; ctx.clearRect(0,0,W2,H2);
+  const n=nodes(W2,H2); const Wd=dispW(); const f=cyc.f, b=cyc.b;
+  const ph=PHASES[phaseIdx].id;
+  const e1=[[0,0,"w1"],[1,0,"w2"],[0,1,"w3"],[1,1,"w4"]]; // [inputIdx,hidIdx,wkey]  (h1 from x1,x2 ; h2 from x1,x2)
+  // careful mapping: h1 uses w1(x1),w2(x2); h2 uses w3(x1),w4(x2)
+  const inH=[{i:0,h:0,w:"w1"},{i:1,h:0,w:"w2"},{i:0,h:1,w:"w3"},{i:1,h:1,w:"w4"}];
+  const hO=[{h:0,w:"w5"},{h:1,w:"w6"}];
+
+  // edges input->hidden
+  inH.forEach(e=>{
+    const A=n.inp[e.i],B=n.hid[e.h],w=Wd[e.w];
+    drawEdge(ctx,A,B,w);
+    if(ph==="f1") flow(ctx,A,B,phaseProg,"#ffd400");
+    if(ph==="b2") flow(ctx,B,A,phaseProg,"#ff3366");
+    // weight label
+    edgeLabel(ctx,A,B,w.toFixed(2), (ph==="up")?"#ffd400":"#7a8290");
+  });
+  // edges hidden->output
+  hO.forEach(e=>{
+    const A=n.hid[e.h],B=n.out[0],w=Wd[e.w];
+    drawEdge(ctx,A,B,w);
+    if(ph==="f2") flow(ctx,A,B,phaseProg,"#ffd400");
+    if(ph==="b1") flow(ctx,B,A,phaseProg,"#ff3366");
+    edgeLabel(ctx,A,B,w.toFixed(2),(ph==="up")?"#ffd400":"#7a8290");
+  });
+
+  // node fills
+  const hidFill = ph==="f1"?phaseProg:(["f2","loss","b1","b2","up"].includes(ph)?1:0);
+  const outFill = ph==="f2"?phaseProg:(["loss","b1","b2","up"].includes(ph)?1:0);
+  n.inp.forEach((nd)=>drawNode(ctx,nd,nd.v,1,false,nd.l,nd.v.toFixed(2)));
+  n.hid.forEach((nd,i)=>{const a=i===0?f.ah1:f.ah2; const z=i===0?f.zh1:f.zh2; drawNode(ctx,nd,a,hidFill,(ph==="b2"),nd.l, hidFill>0.5?`a=${a.toFixed(2)}`:"" , hidFill>0.5?`z=${z.toFixed(2)}`:"");});
+  drawNode(ctx,n.out[0],f.yh,outFill,(ph==="b1"||ph==="loss"),"ŷ", outFill>0.5?`ŷ=${f.yh.toFixed(3)}`:"");
+
+  // target marker near output
+  ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono"; ctx.textAlign="center";
+  ctx.fillText("target "+ty.toFixed(2), n.out[0].x, n.out[0].y+46);
+
+  // backward delta annotations
+  if(ph==="b1"){ ctx.fillStyle="#ff3366"; ctx.font="11px JetBrains Mono"; ctx.textAlign="center"; ctx.fillText("δₒ="+f3(b.dO), n.out[0].x, n.out[0].y-44); }
+  if(ph==="b2"){ ctx.fillStyle="#ff3366"; ctx.font="10px JetBrains Mono"; ctx.textAlign="center"; ctx.fillText("δ₁="+f3(b.dH1), n.hid[0].x, n.hid[0].y-40); ctx.fillText("δ₂="+f3(b.dH2), n.hid[1].x, n.hid[1].y+48); }
+  ctx.textAlign="left";
+
+  // column captions
+  ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono"; ctx.textAlign="center";
+  ctx.fillText("INPUTS", n.inp[0].x, H2-12); ctx.fillText("HIDDEN", n.hid[0].x, H2-12); ctx.fillText("OUTPUT", n.out[0].x, H2-12);
+  ctx.textAlign="left";
+
+  // gauge
+  const yh=f.yh;
+  document.getElementById("gaugeFill").style.width=(yh*100)+"%";
+  document.getElementById("gaugeTarget").style.left=(ty*100)+"%";
+  document.getElementById("gaugeYhat").textContent=yh.toFixed(3);
+  document.getElementById("gaugeErr").textContent=(yh-ty).toFixed(3);
+  document.getElementById("gaugeY").textContent=ty.toFixed(2);
+
+  drawLoss(); renderWtbl();
+}
+function drawEdge(ctx,A,B,w){
+  ctx.strokeStyle = w>=0 ? `rgba(255,212,0,${Math.min(0.7,0.12+Math.abs(w)*0.4)})` : `rgba(255,51,102,${Math.min(0.7,0.12+Math.abs(w)*0.4)})`;
+  ctx.lineWidth = Math.min(5,0.6+Math.abs(w)*2);
+  ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+}
+function edgeLabel(ctx,A,B,txt,color){
+  const mx=A.x+(B.x-A.x)*0.42, my=A.y+(B.y-A.y)*0.42-4;
+  ctx.fillStyle=color; ctx.font="9px JetBrains Mono"; ctx.textAlign="center"; ctx.fillText(txt,mx,my); ctx.textAlign="left";
+}
+function flow(ctx,A,B,p,color){
+  for(let k=0;k<3;k++){
+    let t=(p - k*0.18); if(t<0||t>1)continue;
+    const x=A.x+(B.x-A.x)*t, y=A.y+(B.y-A.y)*t;
+    ctx.fillStyle=color; ctx.globalAlpha=1-k*0.28; ctx.beginPath(); ctx.arc(x,y,3.5-k*0.7,0,7); ctx.fill();
+    ctx.globalAlpha=0.25; ctx.beginPath(); ctx.arc(x,y,7-k,0,7); ctx.fill(); ctx.globalAlpha=1;
+  }
+}
+function drawNode(ctx,nd,val,fill,hot,label,line1,line2){
+  const r=22;
+  // glow if hot (being computed)
+  if(hot){ ctx.fillStyle="rgba(255,51,102,0.18)"; ctx.beginPath(); ctx.arc(nd.x,nd.y,r+8,0,7); ctx.fill(); }
+  ctx.fillStyle="#0d1117"; ctx.beginPath(); ctx.arc(nd.x,nd.y,r,0,7); ctx.fill();
+  // fill by activation level (clamped) * reveal
+  const lvl=Math.max(0,Math.min(1,val))*fill;
+  ctx.fillStyle=`rgba(255,212,0,${lvl*0.85})`; ctx.beginPath(); ctx.arc(nd.x,nd.y,r-3,0,7); ctx.fill();
+  ctx.strokeStyle=hot?"#ff3366":"rgba(255,255,255,0.25)"; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(nd.x,nd.y,r,0,7); ctx.stroke();
+  ctx.fillStyle="#f1f3f5"; ctx.font="12px JetBrains Mono"; ctx.textAlign="center"; ctx.fillText(label,nd.x,nd.y-r-8);
+  ctx.fillStyle=lvl>0.5?"#06080c":"#9aa3b2"; ctx.font="10px JetBrains Mono";
+  if(line1) ctx.fillText(line1, nd.x, nd.y+3);
+  if(line2){ ctx.fillStyle="#5a6271"; ctx.fillText(line2, nd.x, nd.y+r+16); }
+  ctx.textAlign="left";
+}
+function drawLoss(){
+  const c=document.getElementById("lossChart"); const ctx=c.getContext("2d");
+  const dpr=window.devicePixelRatio||1; c.width=c.offsetWidth*dpr; c.height=c.offsetHeight*dpr; ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W2=c.offsetWidth,H2=c.offsetHeight; ctx.clearRect(0,0,W2,H2);
+  ctx.strokeStyle="rgba(255,255,255,0.06)"; for(let i=0;i<=3;i++){const y=i/3*(H2-8)+4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W2,y);ctx.stroke();}
+  if(lossHist.length<2){ctx.fillStyle="#5a6271";ctx.font="10px JetBrains Mono";ctx.fillText("running…",8,H2/2);return;}
+  const mx=Math.max(...lossHist);
+  ctx.strokeStyle="#ff3366"; ctx.lineWidth=2; ctx.beginPath();
+  lossHist.forEach((v,i)=>{const x=i/(lossHist.length-1)*W2;const y=H2-4-(v/mx)*(H2-10);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.stroke();
+  const lv=lossHist[lossHist.length-1]; const ly=H2-4-(lv/mx)*(H2-10);
+  ctx.fillStyle="#ffd400"; ctx.beginPath(); ctx.arc(W2-2,ly,3,0,7); ctx.fill();
+}
+function renderWtbl(){
+  const Wd=dispW(); const t=document.getElementById("wtbl"); 
+  const rows=[["w₁",Wd.w1],["w₂",Wd.w2],["w₃",Wd.w3],["w₄",Wd.w4],["w₅",Wd.w5],["w₆",Wd.w6],["b₁",Wd.b1],["b₂",Wd.b2],["b₃",Wd.b3]];
+  t.innerHTML = "<tr>"+rows.map((r,i)=>`<td style="color:var(--text-3)">${r[0]}</td><td style="text-align:right;color:${r[1]>=0?'var(--accent)':'var(--magenta)'}">${r[1].toFixed(3)}</td>${i%2===1?'</tr><tr>':''}`).join("")+"</tr>";
+}
+
+/* ===== synced calc ===== */
+function renderCalc(){
+  const f=cyc.f,b=cyc.b,ph=PHASES[phaseIdx].id;
+  const c=document.getElementById("calc");
+  const eq=(lhs,sub,res,back)=>`<div class="eq"><span class="lhs${back?' back':''}">${lhs}</span> = <span class="sub">${sub}</span> = <span class="res">${res}</span></div>`;
+  let html="";
+  if(ph==="f1"){
+    html=eq("z_h1",`w₁·x₁+w₂·x₂+b₁ = ${f3(oldW.w1)}·${f3(x1)}+${f3(oldW.w2)}·${f3(x2)}+${f3(oldW.b1)}`,f4(f.zh1))
+       +eq("a_h1",`σ(z_h1)`,f4(f.ah1))
+       +eq("z_h2",`w₃·x₁+w₄·x₂+b₂`,f4(f.zh2))
+       +eq("a_h2",`σ(z_h2)`,f4(f.ah2))
+       +`<div class="eq note">each hidden neuron = weighted sum of inputs, squashed by sigmoid</div>`;
+  } else if(ph==="f2"){
+    html=eq("z_o",`w₅·a_h1+w₆·a_h2+b₃ = ${f3(oldW.w5)}·${f3(f.ah1)}+${f3(oldW.w6)}·${f3(f.ah2)}+${f3(oldW.b3)}`,f4(f.zo))
+       +eq("ŷ",`σ(z_o)`,f4(f.yh))
+       +`<div class="eq note">ŷ is the prediction — the forward pass is complete</div>`;
+  } else if(ph==="loss"){
+    html=eq("L",`½(ŷ−y)² = ½(${f3(f.yh)}−${f3(ty)})²`,f4(f.L))
+       +`<div class="eq note">error ŷ−y = ${f4(f.yh-ty)}. We now differentiate L to fix it.</div>`;
+  } else if(ph==="b1"){
+    html=eq("δₒ",`(ŷ−y)·ŷ(1−ŷ) = ${f3(f.yh-ty)}·${f3(f.yh)}·${f3(1-f.yh)}`,f4(b.dO),true)
+       +eq("∂L/∂w₅",`δₒ·a_h1`,f4(b.dw5),true)
+       +eq("∂L/∂w₆",`δₒ·a_h2`,f4(b.dw6),true)
+       +eq("∂L/∂b₃",`δₒ`,f4(b.db3),true);
+  } else if(ph==="b2"){
+    html=eq("δ₁",`δₒ·w₅·a_h1(1−a_h1)`,f4(b.dH1),true)
+       +eq("δ₂",`δₒ·w₆·a_h2(1−a_h2)`,f4(b.dH2),true)
+       +eq("∂L/∂w₁",`δ₁·x₁`,f4(b.dw1),true)
+       +eq("∂L/∂w₂",`δ₁·x₂`,f4(b.dw2),true)
+       +eq("∂L/∂w₃",`δ₂·x₁`,f4(b.dw3),true)
+       +eq("∂L/∂w₄",`δ₂·x₂`,f4(b.dw4),true);
+  } else {
+    html=`<div class="eq note">rule: w ← w − η·∂L/∂w &nbsp;(η=${f3(lr)})</div>`
+       +eq("w₅′",`${f3(oldW.w5)} − ${f3(lr)}·${f3(b.dw5)}`,f4(oldW.w5-lr*b.dw5),true)
+       +eq("w₁′",`${f3(oldW.w1)} − ${f3(lr)}·${f3(b.dw1)}`,f4(oldW.w1-lr*b.dw1),true)
+       +eq("b₃′",`${f3(oldW.b3)} − ${f3(lr)}·${f3(b.db3)}`,f4(oldW.b3-lr*b.db3),true)
+       +`<div class="eq note">weights nudged against the gradient → next ŷ is closer to y</div>`;
+  }
+  c.innerHTML=html;
+  // phase header
+  const p=PHASES[phaseIdx];
+  document.getElementById("phaseTitle").textContent=p.name;
+  document.getElementById("phaseDot").style.background=p.back?"var(--magenta)":"var(--accent)";
+  document.getElementById("phaseDot").style.boxShadow=`0 0 6px ${p.back?"var(--magenta)":"var(--accent)"}`;
+  document.getElementById("cycleLabel").textContent="cycle "+(stepN+1);
+}
+
+/* ===== loop ===== */
+function tick(t){
+  const dt=t-lastT; lastT=t;
+  if(playing){
+    phaseProg += dt/(PHASES[phaseIdx].dur/speed);
+    if(phaseProg>=1){
+      phaseProg=0;
+      if(PHASES[phaseIdx].id==="up"){ commitUpdate(); phaseIdx=0; startCycle(); }
+      else phaseIdx++;
+      renderCalc();
+    }
+  }
+  updateRail(); draw();
+  requestAnimationFrame(tick);
+}
+
+/* events */
+document.getElementById("playBtn").addEventListener("click",e=>{playing=!playing;e.target.textContent=playing?"❚❚ PAUSE":"▶ PLAY";});
+document.getElementById("stepBtn").addEventListener("click",()=>{
+  playing=false; document.getElementById("playBtn").textContent="▶ PLAY";
+  phaseProg=0;
+  if(PHASES[phaseIdx].id==="up"){ commitUpdate(); phaseIdx=0; startCycle(); }
+  else phaseIdx++;
+  renderCalc();
+});
+document.getElementById("resetBtn").addEventListener("click",()=>{initW();stepN=0;lossHist=[];phaseIdx=0;phaseProg=0;startCycle();renderCalc();});
+document.getElementById("randW").addEventListener("click",()=>{initW();stepN=0;lossHist=[];phaseIdx=0;phaseProg=0;startCycle();renderCalc();});
+document.getElementById("speed").addEventListener("input",e=>{speed=+e.target.value;document.getElementById("speedV").textContent=speed.toFixed(1)+"×";});
+document.getElementById("lr").addEventListener("input",e=>{lr=+e.target.value;document.getElementById("lrV").textContent=lr.toFixed(1);renderCalc();});
+[["x1","x1V",v=>x1=v],["x2","x2V",v=>x2=v],["ty","tyV",v=>ty=v]].forEach(([id,vid,set])=>{
+  document.getElementById(id).addEventListener("input",e=>{set(+e.target.value);document.getElementById(vid).textContent=(+e.target.value).toFixed(2);startCycle();renderCalc();});
+});
+
+/* init */
+buildRail(); initW(); startCycle(); renderCalc();
+requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(tick);});
+window.addEventListener("resize",draw);
+</script>
+</body>
+</html>

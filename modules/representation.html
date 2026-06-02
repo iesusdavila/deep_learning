@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Representation Learning · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .pipe-box { padding:9px 11px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:10.5px; text-align:center; color:var(--text-2); }
+  .pipe-box.accent { border-color:var(--accent); color:var(--accent); }
+  .matrix-grid { display:grid; gap:2px; }
+  .matrix-grid .cell { aspect-ratio:1; display:grid; place-items:center; font-family:var(--font-mono); font-size:9px; font-variant-numeric:tabular-nums; }
+  .tripStage { position:relative; height:340px; background:#06080c; border:1px solid var(--hairline); cursor:crosshair; }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M12 Representation Learning">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M18 / LABORATORY</div>
+      <h1>Representation learning. <em>Good features</em><br>without (many) labels.</h1>
+      <p class="lede">CLIP and DINO feel exotic, but the engine underneath is old and general: take a perfectly normal backbone — ResNet, VGG — and train it so that <em>similar things get similar vectors</em>. Change only the definition of "similar" and you get contrastive learning, metric learning, or self-supervision. Same backbone, different supervision signal.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 12.01</b> · METRIC.LEARNING</span>
+        <span><b>BACKBONE</b> · RESNET / VGG (standard)</span>
+        <span><b>HEAD</b> · MLP PROJECTION → ℓ2-NORM</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- IDEA -->
+      <div class="section-title"><span class="num">// 01</span><h2>The shape of it · backbone + projection head</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> ANY CNN BECOMES AN ENCODER</div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;">
+                <canvas id="ideaImg" width="56" height="56" style="border:1px solid var(--hairline);image-rendering:pixelated;"></canvas>
+                <span style="color:var(--accent);font-family:var(--font-mono);">→</span>
+                <div class="pipe-box accent">ResNet / VGG<br><span style="color:var(--text-3)">backbone f(·)</span></div>
+                <span style="color:var(--accent);font-family:var(--font-mono);">→</span>
+                <div class="pipe-box">global pool<br><span style="color:var(--text-3)">2048-D</span></div>
+                <span style="color:var(--accent);font-family:var(--font-mono);">→</span>
+                <div class="pipe-box">MLP head g(·)<br><span style="color:var(--text-3)">→ 128-D</span></div>
+                <span style="color:var(--accent);font-family:var(--font-mono);">→</span>
+                <div class="pipe-box accent">ℓ2-normalize<br><span style="color:var(--text-3)">z on unit sphere</span></div>
+              </div>
+              <div class="callout mt-6">
+                <b>The only new piece is the loss.</b> The backbone is the exact same ResNet you'd train for ImageNet classification. Instead of a softmax-over-classes head, you bolt on a small projection MLP and train with a <em>similarity</em> objective. After training, you throw the head away and keep the backbone — its features now transfer to almost any downstream task.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> WHO DEFINES "SIMILAR"?</div>
+            <div class="panel-body" style="font-size:13px;line-height:1.5;">
+              <div style="padding:9px 0;border-bottom:1px solid var(--hairline);"><b style="color:var(--accent)">SimCLR</b> · two augmentations of the <em>same</em> image are similar. No labels.</div>
+              <div style="padding:9px 0;border-bottom:1px solid var(--hairline);"><b style="color:var(--accent)">Triplet / metric</b> · a labelled anchor is similar to same-class, far from other-class.</div>
+              <div style="padding:9px 0;border-bottom:1px solid var(--hairline);"><b style="color:var(--magenta)">DINO</b> · crops should agree with a momentum teacher. No labels.</div>
+              <div style="padding:9px 0;"><b style="color:var(--magenta)">CLIP</b> · an image is similar to its caption. Weak web labels.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SIMCLR -->
+      <div class="section-title"><span class="num">// 02</span><h2>SimCLR · positives from augmentation, negatives from the batch</h2><div class="line"></div></div>
+      <p class="small" style="max-width:760px;margin-bottom:18px;">Take N images. Make two random augmentations of each → 2N views. The two views of one image are a <b style="color:var(--accent)">positive pair</b>; every other view in the batch is a <b style="color:var(--magenta)">negative</b>. The NT-Xent loss pulls each positive pair together and pushes everything else apart. Identical idea to CLIP's matrix — except both axes are images.</p>
+      <div class="grid-12">
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> ONE IMAGE · TWO VIEWS</div>
+            <div class="panel-body" style="text-align:center;">
+              <div style="display:flex;gap:14px;justify-content:center;align-items:center;">
+                <div><div class="small muted mb-2">VIEW A</div><canvas id="viewA" width="110" height="110" style="border:1px solid var(--accent);image-rendering:pixelated;"></canvas></div>
+                <div style="font-family:var(--font-mono);color:var(--accent);">≈</div>
+                <div><div class="small muted mb-2">VIEW B</div><canvas id="viewB" width="110" height="110" style="border:1px solid var(--accent);image-rendering:pixelated;"></canvas></div>
+              </div>
+              <div class="small muted mt-4">Crop, flip, jitter, blur — different pixels, <b>same content</b>. The encoder must map both to nearly the same z.</div>
+              <button class="btn mt-4" id="reaug">⟳ RE-AUGMENT</button>
+            </div>
+          </div>
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> NT-XENT</div>
+            <div class="panel-body" style="text-align:center;font-family:var(--font-mono);font-size:12px;line-height:2;">
+              <div style="color:var(--text-2);font-size:11px;">for a positive pair (i, j)</div>
+              <div style="color:var(--accent);">ℓ = −log <span style="color:var(--text-2)">exp(sᵢⱼ/τ) / Σ<sub>k≠i</sub> exp(sᵢₖ/τ)</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> VIEW-A × VIEW-B SIMILARITY <span class="right small mono muted">diagonal = positive pairs</span></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:8px;">
+                <div style="display:flex;flex-direction:column;gap:2px;padding-top:54px;" id="simRowImgs"></div>
+                <div style="flex:1;">
+                  <div id="simColImgs" style="display:flex;gap:2px;margin-bottom:2px;"></div>
+                  <div class="matrix-grid" id="simclrMatrix"></div>
+                </div>
+              </div>
+              <div class="ctrl-row mt-4">
+                <span class="label">TRAIN STEP</span>
+                <input type="range" min="0" max="100" step="1" value="0" id="trainProg">
+                <span class="value" id="trainProgV">0%</span>
+                <button class="btn" id="autoTrain" style="margin-left:10px;">▶ AUTO</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRIPLET -->
+      <div class="section-title"><span class="num">// 03</span><h2>Triplet loss · the labelled cousin</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> DRAG THE POSITIVE &amp; NEGATIVE <span class="right small mono muted">anchor is fixed</span></div>
+            <div class="panel-body">
+              <div class="tripStage" id="tripStage"><canvas id="tripCanvas"></canvas></div>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> TRIPLET LOSS</div>
+            <div class="panel-body">
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">MARGIN α</span>
+                <input type="range" min="0" max="0.6" step="0.01" value="0.2" id="margin">
+                <span class="value" id="marginV">0.20</span>
+              </div>
+              <div class="mt-4" style="font-family:var(--font-mono);font-size:12px;line-height:1.9;">
+                <div>d(a, p) · <span style="color:var(--accent)" id="dap">—</span></div>
+                <div>d(a, n) · <span style="color:var(--magenta)" id="dan">—</span></div>
+                <div>loss = max(0, d(a,p) − d(a,n) + α)</div>
+                <div class="mt-2">loss · <span id="tripLoss" style="color:var(--text)">—</span></div>
+                <div>state · <span id="tripState">—</span></div>
+              </div>
+              <div class="panel mt-4" style="background:var(--void);">
+                <div class="panel-body small" style="line-height:1.6;">Drag the <span style="color:var(--ok)">positive</span> closer than the <span style="color:var(--magenta)">negative</span> by at least the margin to drive the loss to zero. This is how face-recognition embeddings (FaceNet) are trained.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EMERGENT CLUSTERS -->
+      <div class="section-title"><span class="num">// 04</span><h2>What you get · an organized embedding space</h2><div class="line"></div></div>
+      <p class="small" style="max-width:760px;margin-bottom:18px;">As any of these losses trains, the embedding space self-organizes: same-class points clump, different classes separate. This is the input to the <a href="embeddings.html" style="color:var(--accent);">Embeddings &amp; Latents</a> module — drag the slider and watch a random cloud resolve into clean clusters, exactly what a trained ResNet encoder produces.</p>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> EMBEDDING SPACE · projected to 2-D <span class="right small mono muted">6 classes</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="clusterCanvas" width="640" height="360" style="width:100%;max-width:640px;background:#06080c;"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> TRAINING</div>
+            <div class="panel-body">
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">EPOCH</span>
+                <input type="range" min="0" max="100" step="1" value="0" id="clusterProg">
+                <span class="value" id="clusterProgV">0</span>
+              </div>
+              <button class="btn primary w-full mt-4" id="clusterAuto">▶ TRAIN ENCODER</button>
+              <div class="mt-4" style="font-family:var(--font-mono);font-size:12px;line-height:1.9;">
+                <div>silhouette · <span style="color:var(--accent)" id="silV">0.02</span></div>
+                <div>1-NN acc · <span style="color:var(--accent)" id="knnV">18%</span></div>
+              </div>
+              <div class="legend mt-4" id="clusterLegend" style="display:flex;flex-direction:column;gap:5px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>The throughline →</b> Classification, contrastive, triplet, CLIP, DINO — all of them are just different answers to "what should be close to what?" Pick the supervision you can afford (labels are expensive, augmentations are free), bolt the right loss onto a standard backbone, and you get transferable features. That's representation learning.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script src="../assets/imagery.js"></script>
+<script>CORTEX.mount("representation", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; LABORATORY &nbsp;/&nbsp; <b style='color:var(--accent)'>REPRESENTATION LEARNING</b>");</script>
+
+<script>
+const { CLASSES, draw, normalize, cosine, rng } = CVImagery;
+const PALETTE = { cat:"#ffd400", dog:"#ff9d3a", car:"#4dd0ff", bird:"#2ee68b", tree:"#b388ff", flower:"#ff3366" };
+
+draw(document.getElementById("ideaImg").getContext("2d"), "cat", 56, 0, 0, 2);
+
+/* ===== §2 SimCLR augmented views + matrix ===== */
+function augment(ctx, cls, size, seed, variant) {
+  const r = rng(seed*31 + variant*97);
+  ctx.save();
+  ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,size,size);
+  ctx.translate(size/2, size/2);
+  const scale = 0.8 + r()*0.6;
+  ctx.scale(variant === 0 ? scale : scale, scale);
+  ctx.rotate((r()-0.5)*0.5);
+  if (r() < 0.5) ctx.scale(-1, 1);
+  ctx.translate(-size/2 + (r()-0.5)*size*0.2, -size/2 + (r()-0.5)*size*0.2);
+  draw(ctx, cls, size, 0, 0, seed);
+  ctx.restore();
+  // color jitter
+  const id = ctx.getImageData(0,0,size,size);
+  const bri = (r()-0.5)*60, con = 1 + (r()-0.5)*0.5;
+  for (let i = 0; i < id.data.length; i+=4) {
+    for (let k = 0; k < 3; k++) id.data[i+k] = Math.max(0,Math.min(255,(id.data[i+k]-128)*con + 128 + bri));
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+let simSeed = 7;
+function renderViews() {
+  augment(document.getElementById("viewA").getContext("2d"), "cat", 110, simSeed, 0);
+  augment(document.getElementById("viewB").getContext("2d"), "cat", 110, simSeed, 1);
+}
+document.getElementById("reaug").addEventListener("click", () => { simSeed = Math.floor(Math.random()*1000); renderViews(); });
+
+let trainProg = 0;
+const simBatch = CLASSES.map((c, i) => ({ cls: c, seed: i*5+2 }));
+function embAt(cls, seed, variant, t) {
+  const concept = CVImagery.CONCEPT[cls];
+  const r = rng(seed*977 + variant*53 + 13);
+  const v = [];
+  for (let i = 0; i < 12; i++) v.push(concept[i%12]*t + (r()*2-1)*(1-t)*1.2 + (r()*2-1)*0.15);
+  return normalize(v);
+}
+function renderSimMatrix() {
+  const t = trainProg/100, N = simBatch.length;
+  const A = simBatch.map(b => embAt(b.cls, b.seed, 0, t));
+  const B = simBatch.map(b => embAt(b.cls, b.seed, 1, t));
+  const rowImgs = document.getElementById("simRowImgs");
+  if (!rowImgs.children.length) {
+    simBatch.forEach(b => { const cv=document.createElement("canvas"); cv.width=44;cv.height=44; cv.style.cssText="width:42px;height:42px;border:1px solid var(--accent);image-rendering:pixelated;"; augment(cv.getContext("2d"), b.cls, 44, b.seed, 0); rowImgs.appendChild(cv); });
+    const colImgs = document.getElementById("simColImgs");
+    simBatch.forEach(b => { const cv=document.createElement("canvas"); cv.width=44;cv.height=44; cv.style.cssText="flex:1;aspect-ratio:1;border:1px solid var(--magenta);image-rendering:pixelated;min-width:0;"; augment(cv.getContext("2d"), b.cls, 44, b.seed, 1); colImgs.appendChild(cv); });
+  }
+  const grid = document.getElementById("simclrMatrix");
+  grid.style.gridTemplateColumns = `repeat(${N},1fr)`;
+  grid.innerHTML = "";
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const s = cosine(A[i], B[j]);
+    const cell = document.createElement("div"); cell.className = "cell";
+    const v = Math.max(0, Math.min(1, (s+0.3)/1.3));
+    if (i === j) { cell.style.background = `rgba(255,212,0,${0.15+v*0.85})`; cell.style.color = v>0.5?"#06080c":"var(--accent)"; cell.style.outline="1px solid var(--accent)"; }
+    else { cell.style.background = `rgba(255,51,102,${v*0.5})`; cell.style.color="var(--text-3)"; }
+    cell.textContent = s.toFixed(1);
+    grid.appendChild(cell);
+  }
+}
+document.getElementById("trainProg").addEventListener("input", e => { trainProg=+e.target.value; document.getElementById("trainProgV").textContent=trainProg+"%"; renderSimMatrix(); });
+let simAuto = null;
+document.getElementById("autoTrain").addEventListener("click", e => {
+  if (simAuto) { clearInterval(simAuto); simAuto=null; e.target.textContent="▶ AUTO"; return; }
+  e.target.textContent="❚❚";
+  simAuto = setInterval(() => { trainProg=Math.min(100,trainProg+2); document.getElementById("trainProg").value=trainProg; document.getElementById("trainProgV").textContent=trainProg+"%"; renderSimMatrix(); if(trainProg>=100){clearInterval(simAuto);simAuto=null;e.target.textContent="▶ AUTO";} }, 80);
+});
+
+/* ===== §3 triplet ===== */
+const tripCv = document.getElementById("tripCanvas");
+const tripStage = document.getElementById("tripStage");
+let anchor = { x: 0.5, y: 0.5 };
+let pos = { x: 0.62, y: 0.42 };
+let neg = { x: 0.78, y: 0.7 };
+let margin = 0.2;
+let dragTarget = null;
+
+function fitTrip() {
+  const r = tripStage.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  tripCv.width = r.width*dpr; tripCv.height = r.height*dpr;
+  tripCv.style.width = r.width+"px"; tripCv.style.height = r.height+"px";
+  tripCv.getContext("2d").setTransform(dpr,0,0,dpr,0,0);
+}
+function drawTrip() {
+  const ctx = tripCv.getContext("2d");
+  const W = tripCv.offsetWidth, Hd = tripCv.offsetHeight;
+  ctx.clearRect(0,0,W,Hd);
+  const A = { x: anchor.x*W, y: anchor.y*Hd }, P = { x: pos.x*W, y: pos.y*Hd }, Nn = { x: neg.x*W, y: neg.y*Hd };
+  const dap = Math.hypot(anchor.x-pos.x, anchor.y-pos.y);
+  const dan = Math.hypot(anchor.x-neg.x, anchor.y-neg.y);
+  // margin ring around anchor (desired positive radius = dan - margin)
+  ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.arc(A.x, A.y, dan*W, 0, 7); ctx.stroke();
+  ctx.strokeStyle = "rgba(46,230,139,0.3)";
+  ctx.beginPath(); ctx.arc(A.x, A.y, Math.max(0,(dan-margin))*W, 0, 7); ctx.stroke();
+  ctx.setLineDash([]);
+  // lines
+  ctx.strokeStyle = "#2ee68b"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(P.x,P.y); ctx.stroke();
+  ctx.strokeStyle = "#ff3366"; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(Nn.x,Nn.y); ctx.stroke();
+  // points
+  function pt(p, color, label) {
+    ctx.fillStyle = color; ctx.beginPath(); ctx.arc(p.x, p.y, 9, 0, 7); ctx.fill();
+    ctx.fillStyle = "#06080c"; ctx.font = "bold 11px JetBrains Mono"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(label, p.x, p.y);
+  }
+  pt(A, "#fff", "A"); pt(P, "#2ee68b", "P"); pt(Nn, "#ff3366", "N");
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  // labels distances
+  ctx.fillStyle = "#2ee68b"; ctx.font="10px JetBrains Mono"; ctx.fillText("d(a,p)="+dap.toFixed(2), (A.x+P.x)/2+6, (A.y+P.y)/2);
+  ctx.fillStyle = "#ff3366"; ctx.fillText("d(a,n)="+dan.toFixed(2), (A.x+Nn.x)/2+6, (A.y+Nn.y)/2);
+  // readouts
+  const loss = Math.max(0, dap - dan + margin);
+  document.getElementById("dap").textContent = dap.toFixed(3);
+  document.getElementById("dan").textContent = dan.toFixed(3);
+  document.getElementById("tripLoss").textContent = loss.toFixed(3);
+  const st = document.getElementById("tripState");
+  if (loss <= 0.001) { st.textContent = "SATISFIED ✓"; st.style.color = "var(--ok)"; }
+  else { st.textContent = "VIOLATED — push P in / N out"; st.style.color = "var(--fail)"; }
+}
+function tripPos(e) { const r = tripStage.getBoundingClientRect(); return { x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height }; }
+tripStage.addEventListener("mousedown", e => {
+  const p = tripPos(e);
+  const dp = Math.hypot(p.x-pos.x, p.y-pos.y), dn = Math.hypot(p.x-neg.x, p.y-neg.y);
+  dragTarget = dp < dn ? (dp < 0.08 ? "pos" : null) : (dn < 0.08 ? "neg" : null);
+  if (!dragTarget) dragTarget = dp < dn ? "pos" : "neg";
+});
+window.addEventListener("mousemove", e => {
+  if (!dragTarget) return;
+  const p = tripPos(e);
+  const t = dragTarget === "pos" ? pos : neg;
+  t.x = Math.max(0.03,Math.min(0.97,p.x)); t.y = Math.max(0.03,Math.min(0.97,p.y));
+  drawTrip();
+});
+window.addEventListener("mouseup", () => dragTarget = null);
+document.getElementById("margin").addEventListener("input", e => { margin=+e.target.value; document.getElementById("marginV").textContent=margin.toFixed(2); drawTrip(); });
+
+/* ===== §4 clusters ===== */
+const clCv = document.getElementById("clusterCanvas");
+let clusterProg = 0;
+let clPoints = [];
+function initClusters() {
+  clPoints = [];
+  const r = rng(2024);
+  CLASSES.forEach((c, ci) => {
+    const cx = Math.cos(ci/6*Math.PI*2)*0.6, cy = Math.sin(ci/6*Math.PI*2)*0.6;
+    for (let i = 0; i < 30; i++) {
+      clPoints.push({ cls: c, ci,
+        rx: (r()*2-1), ry: (r()*2-1),     // random init position
+        tx: cx + (r()*2-1)*0.18, ty: cy + (r()*2-1)*0.18 }); // trained target
+    }
+  });
+}
+function renderClusters() {
+  const ctx = clCv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  clCv.width = clCv.offsetWidth*dpr; clCv.height = clCv.offsetHeight*dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W = clCv.offsetWidth, Hd = clCv.offsetHeight;
+  ctx.fillStyle = "#06080c"; ctx.fillRect(0,0,W,Hd);
+  // grid
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  for (let i = 0; i <= 8; i++) { const x=i/8*W; ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,Hd); ctx.stroke(); }
+  const t = clusterProg/100;
+  const sc = Math.min(W,Hd)*0.42, cx = W/2, cy = Hd/2;
+  clPoints.forEach(p => {
+    const x = p.rx*(1-t) + p.tx*t, y = p.ry*(1-t) + p.ty*t;
+    ctx.fillStyle = PALETTE[p.cls];
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.arc(cx + x*sc, cy - y*sc, 3.2, 0, 7); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  // metrics (synthetic but monotonic)
+  document.getElementById("silV").textContent = (0.02 + t*0.72).toFixed(2);
+  document.getElementById("knnV").textContent = Math.round(18 + t*78) + "%";
+}
+const cl = document.getElementById("clusterLegend");
+CLASSES.forEach(c => { const d=document.createElement("div"); d.style.cssText="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:11px;color:var(--text-2);"; d.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${PALETTE[c]}"></span> ${c}`; cl.appendChild(d); });
+document.getElementById("clusterProg").addEventListener("input", e => { clusterProg=+e.target.value; document.getElementById("clusterProgV").textContent=clusterProg; renderClusters(); });
+let clAuto = null;
+document.getElementById("clusterAuto").addEventListener("click", e => {
+  if (clAuto) { clearInterval(clAuto); clAuto=null; e.target.textContent="▶ TRAIN ENCODER"; return; }
+  e.target.textContent="❚❚ PAUSE";
+  clAuto = setInterval(() => { clusterProg=Math.min(100,clusterProg+1.5); document.getElementById("clusterProg").value=clusterProg; document.getElementById("clusterProgV").textContent=Math.round(clusterProg); renderClusters(); if(clusterProg>=100){clearInterval(clAuto);clAuto=null;e.target.textContent="▶ TRAIN ENCODER";} }, 60);
+});
+
+/* init */
+renderViews(); renderSimMatrix();
+fitTrip(); drawTrip();
+initClusters(); renderClusters();
+window.addEventListener("resize", () => { fitTrip(); drawTrip(); renderClusters(); });
+</script>
+</body>
+</html>

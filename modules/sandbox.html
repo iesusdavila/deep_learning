@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI Sandbox · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .graph-stage { position: relative; height: 620px; background: #06080c; border: 1px solid var(--hairline); overflow: hidden; }
+  .grid-bg {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,212,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,212,0,0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+  }
+  .node {
+    position: absolute;
+    width: 180px;
+    background: var(--panel);
+    border: 1px solid var(--hairline);
+    cursor: grab;
+    user-select: none;
+    z-index: 2;
+  }
+  .node:active { cursor: grabbing; }
+  .node.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(255,212,0,0.2); }
+  .node .head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--hairline);
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  .node .head .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .node.cat-input .head .dot { background: var(--accent); }
+  .node.cat-proc  .head .dot { background: var(--cyan); }
+  .node.cat-view  .head .dot { background: var(--magenta); }
+  .node .preview { padding: 10px; display: flex; justify-content: center; }
+  .node .preview canvas { background: #000; border: 1px solid var(--hairline); display: block; }
+  .node .params { padding: 8px 12px; border-top: 1px dashed var(--hairline); font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3); }
+  .node .params .row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .node .params .row b { color: var(--accent); font-weight: 400; }
+  .port { position: absolute; width: 12px; height: 12px; background: var(--void); border: 1.5px solid var(--accent); border-radius: 50%; z-index: 3; }
+  .port.in  { left: -7px; top: 28px; }
+  .port.out { right: -7px; top: 28px; }
+  .port:hover { background: var(--accent); }
+
+  .palette-pop {
+    position: absolute; top: 16px; left: 16px; z-index: 10;
+    background: var(--panel); border: 1px solid var(--hairline-strong); padding: 14px;
+    min-width: 220px;
+  }
+  .palette-pop h5 { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.12em; margin: 8px 0 6px; font-weight: 400; }
+  .palette-pop h5:first-child { margin-top: 0; }
+  .palette-pop button { display: block; width: 100%; text-align: left; background: transparent; border: 1px solid var(--hairline); color: var(--text-2); font-family: var(--font-mono); font-size: 11px; padding: 6px 10px; margin-bottom: 4px; cursor: pointer; }
+  .palette-pop button:hover { color: var(--accent); border-color: var(--accent); }
+
+  .stats-pop {
+    position: absolute; top: 16px; right: 16px; z-index: 10;
+    background: var(--panel); border: 1px solid var(--hairline-strong); padding: 14px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--text-2);
+  }
+  .stats-pop .row { padding: 3px 0; }
+  .stats-pop b { color: var(--accent); }
+
+  .edges-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M10 Sandbox">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M20 / LABORATORY · FLAGSHIP</div>
+      <h1>The Sandbox. <em>Chain anything</em><br>to anything.</h1>
+      <p class="lede">Drop nodes onto the canvas. Wire them. Image source → convolution → pooling → embedding → output. Every node runs live. The whole graph re-computes on every drag. This is what every CV pipeline looks like underneath.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 10.01</b> · SANDBOX.GRAPH</span>
+        <span><b>NODES</b> · <span style="color:var(--text)" id="nodeCount">7</span></span>
+        <span><b>EDGES</b> · <span style="color:var(--text)" id="edgeCount">6</span></span>
+        <span><b>EXEC TIME</b> · <span style="color:var(--text)" id="execTime">3.2ms</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="graph-stage" id="stage">
+        <div class="grid-bg"></div>
+        <canvas class="edges-canvas" id="edgesCanvas"></canvas>
+
+        <div class="palette-pop">
+          <h5>INPUT</h5>
+          <button data-add="src-cat">⚉ Source · Cat</button>
+          <button data-add="src-circuit">⚉ Source · Circuit</button>
+          <button data-add="src-noise">⚉ Source · Noise</button>
+          <h5>PROCESSING</h5>
+          <button data-add="conv-sobel">⨂ Conv · Sobel</button>
+          <button data-add="conv-blur">⨂ Conv · Blur</button>
+          <button data-add="conv-sharpen">⨂ Conv · Sharpen</button>
+          <button data-add="pool-max">▼ MaxPool 2×2</button>
+          <button data-add="threshold">▼ Threshold</button>
+          <button data-add="relu">▲ ReLU</button>
+          <h5>OUTPUT</h5>
+          <button data-add="view">◉ Viewer</button>
+          <button data-add="embed">⊙ Embed (1×64)</button>
+        </div>
+
+        <div class="stats-pop">
+          <div class="row"><b>STATUS</b> · <span style="color:var(--ok)">RUNNING</span></div>
+          <div class="row">DRAG nodes to rearrange</div>
+          <div class="row">CLICK port to start wire</div>
+          <div class="row">CLICK port to finish wire</div>
+          <div class="row">DBL-CLICK node to delete</div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>This is the whole point →</b> Modern ML systems are graphs of differentiable ops. Frameworks like PyTorch and JAX let you assemble these graphs in code; what you're seeing here is what they assemble underneath. Every output of every node is a tensor; every edge a tensor flow.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("sandbox", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; LABORATORY &nbsp;/&nbsp; <b style='color:var(--accent)'>AI SANDBOX</b>");</script>
+
+<script>
+const SZ = 64;
+const stage = document.getElementById("stage");
+const edgesC = document.getElementById("edgesCanvas");
+const ectx = edgesC.getContext("2d");
+
+function fitEdges() {
+  const r = stage.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  edgesC.width = r.width * dpr; edgesC.height = r.height * dpr;
+  edgesC.style.width = r.width + "px"; edgesC.style.height = r.height + "px";
+  ectx.setTransform(1,0,0,1,0,0); ectx.scale(dpr, dpr);
+}
+window.addEventListener("resize", fitEdges);
+setTimeout(fitEdges, 30);
+
+let nodeCounter = 0;
+let nodes = []; // { id, kind, x, y, params, data, el }
+let edges = []; // { from, to }
+let pendingPort = null;
+let selectedId = null;
+
+const NODE_DEFS = {
+  "src-cat":     { title: "SOURCE · CAT",     cat: "input", run: () => makeImage("cat") },
+  "src-circuit": { title: "SOURCE · CIRCUIT", cat: "input", run: () => makeImage("circuit") },
+  "src-noise":   { title: "SOURCE · NOISE",   cat: "input", run: () => makeImage("noise") },
+  "conv-sobel":  { title: "CONV · SOBEL",   cat: "proc",  run: (i) => conv(i, [-1,0,1,-2,0,2,-1,0,1]), params: "k=3 · sobel-x" },
+  "conv-blur":   { title: "CONV · BLUR",    cat: "proc",  run: (i) => conv(i, Array(9).fill(1/9)), params: "k=3 · box" },
+  "conv-sharpen":{ title: "CONV · SHARPEN", cat: "proc",  run: (i) => conv(i, [0,-1,0,-1,5,-1,0,-1,0]), params: "k=3 · sharp" },
+  "pool-max":    { title: "POOL · MAX 2×2", cat: "proc",  run: maxPool, params: "k=2 s=2" },
+  "threshold":   { title: "THRESHOLD",      cat: "proc",  run: (i) => threshold(i, 128), params: "t=128" },
+  "relu":        { title: "RELU",           cat: "proc",  run: (i) => relu(i), params: "max(0, x)" },
+  "view":        { title: "VIEWER",         cat: "view",  run: (i) => i, params: "→ display" },
+  "embed":       { title: "EMBED · 1×64",   cat: "view",  run: (i) => i, params: "GAP → 64-vec" },
+};
+
+/* ===== image ops ===== */
+function makeImage(kind) {
+  const out = new Float32Array(SZ*SZ);
+  for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+    let v = 0;
+    if (kind === "cat") {
+      // simple "cat" shape
+      const cx = SZ/2, cy = SZ/2 + 8;
+      const dB = Math.hypot(x-cx, (y-cy)*0.9);
+      v = Math.exp(-dB*dB/300) * 0.9;
+      const dH = Math.hypot(x-cx, (y-cy+18)*1.2);
+      v = Math.max(v, Math.exp(-dH*dH/200) * 0.95);
+      // ears
+      if ((x > cx-22 && x < cx-10 && y > cy-30 && y < cy-18 && (cy-22 - y) > (x-(cx-22))*0.5) ||
+          (x > cx+10 && x < cx+22 && y > cy-30 && y < cy-18 && (cy-22 - y) > ((cx+22)-x)*0.5)) v = 0.95;
+      // eyes
+      if (Math.hypot(x-cx+8, y-cy+10) < 2) v = 0;
+      if (Math.hypot(x-cx-8, y-cy+10) < 2) v = 0;
+    } else if (kind === "circuit") {
+      const u = (x/SZ)*8, w = (y/SZ)*8;
+      v = (Math.abs(((u + 0.3)%1) - 0.5) < 0.08 || Math.abs(((w + 0.6)%1) - 0.5) < 0.08) ? 0.85 : 0.1;
+      if (Math.hypot(((u%1)-0.5), ((w%1)-0.5)) < 0.2) v = 0.95;
+    } else if (kind === "noise") {
+      v = Math.random();
+    }
+    out[y*SZ+x] = v;
+  }
+  return out;
+}
+
+function conv(data, kernel) {
+  if (!data) return makeImage("noise");
+  const out = new Float32Array(SZ*SZ);
+  for (let y = 1; y < SZ-1; y++) for (let x = 1; x < SZ-1; x++) {
+    let s = 0;
+    for (let m = -1; m <= 1; m++) for (let n = -1; n <= 1; n++)
+      s += kernel[(m+1)*3 + (n+1)] * data[(y+m)*SZ+(x+n)];
+    out[y*SZ+x] = s;
+  }
+  return out;
+}
+
+function maxPool(data) {
+  if (!data) return makeImage("noise");
+  const out = new Float32Array(SZ*SZ);
+  for (let y = 0; y < SZ; y += 2) for (let x = 0; x < SZ; x += 2) {
+    let m = -Infinity;
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+      const v = data[(y+dy)*SZ+(x+dx)];
+      if (v > m) m = v;
+    }
+    // upsample for display
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) out[(y+dy)*SZ+(x+dx)] = m;
+  }
+  return out;
+}
+
+function threshold(data, t) {
+  if (!data) return makeImage("noise");
+  const out = new Float32Array(SZ*SZ);
+  for (let i = 0; i < SZ*SZ; i++) out[i] = data[i] > t/255 ? 1 : 0;
+  return out;
+}
+
+function relu(data) {
+  if (!data) return makeImage("noise");
+  const out = new Float32Array(SZ*SZ);
+  for (let i = 0; i < SZ*SZ; i++) out[i] = Math.max(0, data[i]);
+  return out;
+}
+
+function paint(canvas, data, mode) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const id = ctx.createImageData(W, H);
+  let mx = 1e-6;
+  for (let i = 0; i < data.length; i++) if (Math.abs(data[i]) > mx) mx = Math.abs(data[i]);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*SZ/W), sy = Math.floor(y*SZ/H);
+    const v = data[sy*SZ+sx];
+    const i = (y*W+x)*4;
+    const nv = v / mx;
+    if (nv >= 0) { id.data[i] = Math.floor(255*nv); id.data[i+1] = Math.floor(212*nv); id.data[i+2] = 0; }
+    else        { id.data[i] = Math.floor(255*-nv); id.data[i+1] = Math.floor(51*-nv); id.data[i+2] = Math.floor(102*-nv); }
+    id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function paintEmbed(canvas, data) {
+  // simulate global avg pool + 64 channel response
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  // synthesize 64 values from data
+  const vals = [];
+  for (let i = 0; i < 64; i++) {
+    let s = 0;
+    for (let k = 0; k < 50; k++) {
+      const idx = ((i*53 + k*97) % data.length);
+      s += data[idx];
+    }
+    vals.push(s / 50);
+  }
+  const mx = Math.max(...vals.map(v => Math.abs(v))) || 1;
+  for (let i = 0; i < 64; i++) {
+    const v = vals[i] / mx;
+    const cw = W/8, ch = H/8;
+    const x = (i % 8) * cw, y = Math.floor(i / 8) * ch;
+    if (v >= 0) ctx.fillStyle = `rgba(255,212,0,${Math.abs(v)})`;
+    else        ctx.fillStyle = `rgba(255,51,102,${Math.abs(v)})`;
+    ctx.fillRect(x, y, cw-1, ch-1);
+  }
+}
+
+/* ===== graph ops ===== */
+function addNode(kind, x, y) {
+  const id = ++nodeCounter;
+  const def = NODE_DEFS[kind];
+  const n = { id, kind, x, y, data: null };
+  nodes.push(n);
+  const el = document.createElement("div");
+  el.className = "node cat-" + def.cat;
+  el.style.left = x + "px"; el.style.top = y + "px";
+  el.dataset.id = id;
+  el.innerHTML = `
+    <div class="head"><span class="dot"></span>${def.title}</div>
+    <div class="preview"><canvas width="120" height="80"></canvas></div>
+    <div class="params"><div class="row"><span>${kind.includes('embed') ? 'shape' : 'param'}</span> <b>${def.params || (def.cat === "input" ? `${SZ}×${SZ}×1` : "—")}</b></div></div>
+    ${def.cat !== "input" ? '<div class="port in"></div>' : ""}
+    ${def.cat !== "view"  ? '<div class="port out"></div>' : ""}
+  `;
+  stage.appendChild(el);
+  n.el = el;
+  attachDrag(el, n);
+  attachPorts(el, n);
+  el.addEventListener("dblclick", () => deleteNode(id));
+  el.addEventListener("click", e => { e.stopPropagation(); selectNode(id); });
+  recompute();
+  return n;
+}
+
+function selectNode(id) {
+  selectedId = id;
+  document.querySelectorAll(".node").forEach(n => n.classList.toggle("selected", +n.dataset.id === id));
+}
+
+function deleteNode(id) {
+  const n = nodes.find(x => x.id === id);
+  if (!n) return;
+  n.el.remove();
+  nodes = nodes.filter(x => x.id !== id);
+  edges = edges.filter(e => e.from !== id && e.to !== id);
+  recompute();
+}
+
+function attachDrag(el, node) {
+  let sx = 0, sy = 0, dragging = false;
+  el.addEventListener("mousedown", e => {
+    if (e.target.classList.contains("port")) return;
+    dragging = true; sx = e.clientX - node.x; sy = e.clientY - node.y;
+    const r = stage.getBoundingClientRect(); sx -= r.left; sy -= r.top;
+  });
+  window.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const r = stage.getBoundingClientRect();
+    node.x = Math.max(0, Math.min(r.width - 180, e.clientX - r.left - sx));
+    node.y = Math.max(0, Math.min(r.height - 160, e.clientY - r.top - sy));
+    el.style.left = node.x + "px"; el.style.top = node.y + "px";
+    drawEdges();
+  });
+  window.addEventListener("mouseup", () => dragging = false);
+}
+
+function attachPorts(el, node) {
+  el.querySelectorAll(".port").forEach(p => {
+    p.addEventListener("click", e => {
+      e.stopPropagation();
+      const isIn = p.classList.contains("in");
+      if (!pendingPort) {
+        pendingPort = { id: node.id, isIn };
+      } else {
+        if (pendingPort.isIn !== isIn && pendingPort.id !== node.id) {
+          const from = pendingPort.isIn ? node.id : pendingPort.id;
+          const to   = pendingPort.isIn ? pendingPort.id : node.id;
+          // remove existing in-edges to "to"
+          edges = edges.filter(e => e.to !== to);
+          edges.push({ from, to });
+          recompute();
+        }
+        pendingPort = null;
+      }
+    });
+  });
+}
+
+function drawEdges() {
+  fitEdges();
+  const r = stage.getBoundingClientRect();
+  ectx.clearRect(0, 0, r.width, r.height);
+  edges.forEach(e => {
+    const A = nodes.find(n => n.id === e.from);
+    const B = nodes.find(n => n.id === e.to);
+    if (!A || !B) return;
+    const ax = A.x + 180, ay = A.y + 36;
+    const bx = B.x, by = B.y + 36;
+    const mx = (ax + bx) / 2;
+    ectx.strokeStyle = "rgba(255,212,0,0.6)"; ectx.lineWidth = 1.5;
+    ectx.beginPath();
+    ectx.moveTo(ax, ay);
+    ectx.bezierCurveTo(mx, ay, mx, by, bx, by);
+    ectx.stroke();
+    // animated pulse
+    const t = (Date.now() / 1000) % 1;
+    const tt = t;
+    const px = (1-tt)*(1-tt)*(1-tt)*ax + 3*(1-tt)*(1-tt)*tt*mx + 3*(1-tt)*tt*tt*mx + tt*tt*tt*bx;
+    const py = (1-tt)*(1-tt)*(1-tt)*ay + 3*(1-tt)*(1-tt)*tt*ay + 3*(1-tt)*tt*tt*by + tt*tt*tt*by;
+    ectx.fillStyle = "#ffd400";
+    ectx.beginPath(); ectx.arc(px, py, 3, 0, Math.PI*2); ectx.fill();
+    ectx.fillStyle = "rgba(255,212,0,0.25)";
+    ectx.beginPath(); ectx.arc(px, py, 6, 0, Math.PI*2); ectx.fill();
+  });
+}
+
+function recompute() {
+  const t0 = performance.now();
+  // topological order via DFS from inputs
+  const visited = new Set();
+  function visit(id) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const inEdges = edges.filter(e => e.to === id);
+    inEdges.forEach(e => visit(e.from));
+    const node = nodes.find(n => n.id === id);
+    const def = NODE_DEFS[node.kind];
+    const ins = inEdges.map(e => nodes.find(n => n.id === e.from).data);
+    if (def.cat === "input") node.data = def.run();
+    else node.data = def.run(ins[0]);
+    // paint
+    const cv = node.el.querySelector("canvas");
+    if (node.kind === "embed") paintEmbed(cv, node.data || new Float32Array(SZ*SZ));
+    else paint(cv, node.data || new Float32Array(SZ*SZ));
+  }
+  nodes.forEach(n => visit(n.id));
+  document.getElementById("nodeCount").textContent = nodes.length;
+  document.getElementById("edgeCount").textContent = edges.length;
+  document.getElementById("execTime").textContent = (performance.now() - t0).toFixed(1) + "ms";
+  drawEdges();
+}
+
+/* palette buttons */
+document.querySelectorAll("[data-add]").forEach(b => b.addEventListener("click", () => {
+  const x = 280 + Math.random() * 200, y = 80 + Math.random() * 300;
+  addNode(b.dataset.add, x, y);
+}));
+
+/* === seed scene === */
+const a = addNode("src-cat", 280, 100);
+const b = addNode("conv-sobel", 510, 80);
+const c = addNode("relu", 510, 260);
+const d = addNode("pool-max", 720, 80);
+const e = addNode("conv-blur", 720, 260);
+const f = addNode("view", 940, 80);
+const g = addNode("embed", 940, 260);
+edges.push({ from: a.id, to: b.id });
+edges.push({ from: a.id, to: c.id });
+edges.push({ from: b.id, to: d.id });
+edges.push({ from: c.id, to: e.id });
+edges.push({ from: d.id, to: f.id });
+edges.push({ from: e.id, to: g.id });
+recompute();
+
+// animation loop for pulses
+(function loop() { drawEdges(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

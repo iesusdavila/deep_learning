@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Training Simulator · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="M09 Training">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M16 / LABORATORY</div>
+      <h1>Training. <em>Loss falls</em>.<br>A decision boundary forms.</h1>
+      <p class="lede">A neural net is just a function. Training is gradient descent on its parameters until the function fits. Watch loss curves, weights, and a real decision boundary settle into place — in real time, on a real (tiny) 2-layer MLP.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 09.01</b> · TRAINING.SIM</span>
+        <span><b>EPOCH</b> · <span style="color:var(--text)" id="epochR">0</span></span>
+        <span><b>STEP</b> · <span style="color:var(--text)" id="stepR">0</span></span>
+        <span><b>LOSS</b> · <span style="color:var(--magenta)" id="lossR">—</span></span>
+        <span><b>ACC</b> · <span style="color:var(--accent)" id="accR">—</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="grid-12">
+        <!-- DATASET -->
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> DATASET</div>
+            <div class="panel-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+                <button class="btn" data-ds="blobs">BLOBS</button>
+                <button class="btn" data-ds="moons">MOONS</button>
+                <button class="btn" data-ds="circle">CIRCLE</button>
+                <button class="btn" data-ds="spiral">SPIRAL</button>
+                <button class="btn" data-ds="xor">XOR</button>
+                <button class="btn" data-ds="noise">NOISY</button>
+              </div>
+              <div class="ctrl-row mt-4">
+                <span class="label">SAMPLES</span>
+                <input type="range" min="40" max="300" step="10" value="160" id="samples">
+                <span class="value" id="samplesV">160</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">NOISE σ</span>
+                <input type="range" min="0" max="0.3" step="0.01" value="0.05" id="noise">
+                <span class="value" id="noiseV">0.05</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- HYPERPARAMETERS -->
+          <div class="panel mt-6 ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> HYPERPARAMETERS</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">HIDDEN</span>
+                <input type="range" min="2" max="32" step="2" value="8" id="hidden">
+                <span class="value" id="hiddenV">8</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">LR</span>
+                <input type="range" min="-3" max="0" step="0.1" value="-1" id="lr">
+                <span class="value mono" id="lrV">0.10</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">MOMENTUM</span>
+                <input type="range" min="0" max="0.99" step="0.01" value="0.9" id="momentum">
+                <span class="value" id="momentumV">0.90</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">ACTIVATION</span>
+                <select id="actFn" style="flex:1;">
+                  <option value="relu">ReLU</option>
+                  <option value="tanh">Tanh</option>
+                  <option value="sigmoid">Sigmoid</option>
+                  <option value="gelu">GELU</option>
+                </select>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">OPTIMIZER</span>
+                <select id="opt" style="flex:1;">
+                  <option value="sgd">SGD + Momentum</option>
+                  <option value="adam">Adam</option>
+                </select>
+              </div>
+              <div class="mt-4 flex gap-2">
+                <button class="btn primary" id="trainBtn" style="flex:1;">▶ TRAIN</button>
+                <button class="btn" id="stepBtn">STEP</button>
+                <button class="btn" id="resetBtn">⟲</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- DECISION BOUNDARY -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> DECISION BOUNDARY · 2-LAYER MLP
+              <span class="right small mono muted">→ live forward pass on a 40×40 grid</span>
+            </div>
+            <div class="panel-body">
+              <canvas id="boundary" width="520" height="420" style="width:100%;height:420px;background:#000;display:block;"></canvas>
+              <div class="mt-4" style="display:flex;align-items:center;gap:8px;justify-content:center;font-family:var(--font-mono);font-size:10px;color:var(--text-3);">
+                <span style="color:var(--magenta);">CLASS 0</span>
+                <div style="height:6px;width:200px;background:linear-gradient(90deg,#ff3366,#06080c 50%,#ffd400);"></div>
+                <span style="color:var(--accent);">CLASS 1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOSS / METRICS -->
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> LOSS</div>
+            <div class="panel-body">
+              <canvas id="lossChart" width="280" height="180" style="width:100%;height:180px;background:#000;"></canvas>
+              <div class="small muted mt-2">Cross-entropy · train (●) vs eval (◌)</div>
+            </div>
+          </div>
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> ACCURACY</div>
+            <div class="panel-body">
+              <canvas id="accChart" width="280" height="120" style="width:100%;height:120px;background:#000;"></canvas>
+            </div>
+          </div>
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> LEARNING RATE LANDSCAPE</div>
+            <div class="panel-body">
+              <canvas id="lossLandscape" width="280" height="140" style="width:100%;height:140px;background:#000;"></canvas>
+              <div class="small muted mt-2 mono">↘ optimizer trajectory on a synthetic 2D loss</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEIGHTS HEATMAP / GRADIENT FLOW -->
+      <div class="section-title">
+        <span class="num">// 02</span>
+        <h2>Weights &amp; gradients · what's inside the model</h2>
+        <div class="line"></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-head"><span class="dot"></span> W1 · input → hidden <span class="right mono" style="font-size:10px;color:var(--text-3);" id="w1Shape">[2 × 8]</span></div>
+          <div class="panel-body" style="text-align:center;"><canvas id="w1Map" width="520" height="180" style="width:100%;height:180px;image-rendering:pixelated;"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> W2 · hidden → output <span class="right mono" style="font-size:10px;color:var(--text-3);" id="w2Shape">[8 × 2]</span></div>
+          <div class="panel-body" style="text-align:center;"><canvas id="w2Map" width="520" height="180" style="width:100%;height:180px;image-rendering:pixelated;"></canvas></div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>What you're watching →</b> Each frame computes a forward pass on every grid pixel and backprops on every data point. Crank LR too high → loss explodes. Use Tanh on SPIRAL → boundary stays smooth, takes longer. ReLU on XOR → very sharp boundary, very fast.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("training", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; LABORATORY &nbsp;/&nbsp; <b style='color:var(--accent)'>TRAINING SIMULATOR</b>");</script>
+
+<script>
+/* ============================================================
+   Mini MLP trainer: 2 → H → 2, softmax cross-entropy, manual backprop
+   ============================================================ */
+const rng = (seed => () => { seed = (seed*9301+49297)%233280; return seed/233280; })(42);
+
+let H = 8;
+let lr = 0.1, mom = 0.9, opt = "sgd", actName = "relu";
+let W1, b1, W2, b2;
+let mW1, mB1, mW2, mB2; // momentum / Adam first moment
+let vW1, vB1, vW2, vB2; // Adam second moment
+let adamT = 0;
+let dataset = "moons";
+let nSamples = 160;
+let noiseSigma = 0.05;
+let xs = [], ys = [];
+let lossHist = [], accHist = [];
+let pathHist = []; // landscape trajectory
+let running = false;
+
+function initParams() {
+  function r(n, m) { return Array.from({length:n}, () => Array.from({length:m}, () => (rng()*2-1) * Math.sqrt(2/n))); }
+  function z(n, m) { return Array.from({length:n}, () => Array.from({length:m}, () => 0)); }
+  W1 = r(2, H); b1 = Array(H).fill(0);
+  W2 = r(H, 2); b2 = Array(2).fill(0);
+  mW1 = z(2,H); mB1 = Array(H).fill(0);
+  mW2 = z(H,2); mB2 = Array(2).fill(0);
+  vW1 = z(2,H); vB1 = Array(H).fill(0);
+  vW2 = z(H,2); vB2 = Array(2).fill(0);
+  adamT = 0;
+  lossHist = []; accHist = []; pathHist = [];
+}
+
+function activation(x) {
+  if (actName === "relu")  return x > 0 ? x : 0;
+  if (actName === "tanh")  return Math.tanh(x);
+  if (actName === "sigmoid") return 1/(1+Math.exp(-x));
+  if (actName === "gelu")  return 0.5*x*(1 + Math.tanh(0.7978845608*(x + 0.044715*x*x*x)));
+}
+function activationGrad(x) {
+  if (actName === "relu")  return x > 0 ? 1 : 0;
+  if (actName === "tanh")  { const t = Math.tanh(x); return 1 - t*t; }
+  if (actName === "sigmoid") { const s = 1/(1+Math.exp(-x)); return s*(1-s); }
+  if (actName === "gelu") {
+    const c = 0.7978845608, k = 0.044715;
+    const t = Math.tanh(c*(x + k*x*x*x));
+    return 0.5*(1+t) + 0.5*x*(1-t*t)*c*(1 + 3*k*x*x);
+  }
+}
+
+function softmax(z) {
+  const m = Math.max(z[0], z[1]);
+  const e0 = Math.exp(z[0]-m), e1 = Math.exp(z[1]-m);
+  const s = e0+e1;
+  return [e0/s, e1/s];
+}
+
+function forward(x) {
+  const h_pre = Array(H), h = Array(H);
+  for (let j = 0; j < H; j++) {
+    let s = b1[j];
+    s += W1[0][j]*x[0] + W1[1][j]*x[1];
+    h_pre[j] = s;
+    h[j] = activation(s);
+  }
+  const z = [b2[0], b2[1]];
+  for (let j = 0; j < H; j++) { z[0] += W2[j][0]*h[j]; z[1] += W2[j][1]*h[j]; }
+  const p = softmax(z);
+  return { h_pre, h, z, p };
+}
+
+function trainStep() {
+  let totalLoss = 0, correct = 0;
+  const gW1 = Array.from({length:2}, () => Array(H).fill(0));
+  const gB1 = Array(H).fill(0);
+  const gW2 = Array.from({length:H}, () => Array(2).fill(0));
+  const gB2 = Array(2).fill(0);
+
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i], y = ys[i];
+    const { h_pre, h, p } = forward(x);
+    totalLoss += -Math.log(Math.max(1e-9, p[y]));
+    if ((p[1] > p[0] ? 1 : 0) === y) correct++;
+
+    // dL/dz
+    const dz = [p[0] - (y === 0 ? 1 : 0), p[1] - (y === 1 ? 1 : 0)];
+    // dW2, db2
+    for (let j = 0; j < H; j++) {
+      gW2[j][0] += h[j] * dz[0];
+      gW2[j][1] += h[j] * dz[1];
+    }
+    gB2[0] += dz[0]; gB2[1] += dz[1];
+    // dh
+    const dh = Array(H);
+    for (let j = 0; j < H; j++) {
+      dh[j] = (W2[j][0] * dz[0] + W2[j][1] * dz[1]) * activationGrad(h_pre[j]);
+    }
+    for (let j = 0; j < H; j++) {
+      gW1[0][j] += x[0] * dh[j];
+      gW1[1][j] += x[1] * dh[j];
+      gB1[j] += dh[j];
+    }
+  }
+
+  const N = xs.length;
+  const scale = 1 / N;
+  if (opt === "sgd") {
+    for (let i = 0; i < 2; i++) for (let j = 0; j < H; j++) {
+      mW1[i][j] = mom * mW1[i][j] - lr * gW1[i][j] * scale;
+      W1[i][j] += mW1[i][j];
+    }
+    for (let j = 0; j < H; j++) { mB1[j] = mom * mB1[j] - lr * gB1[j] * scale; b1[j] += mB1[j]; }
+    for (let i = 0; i < H; i++) for (let j = 0; j < 2; j++) {
+      mW2[i][j] = mom * mW2[i][j] - lr * gW2[i][j] * scale;
+      W2[i][j] += mW2[i][j];
+    }
+    for (let j = 0; j < 2; j++) { mB2[j] = mom * mB2[j] - lr * gB2[j] * scale; b2[j] += mB2[j]; }
+  } else {
+    adamT++;
+    const b1m = 0.9, b2m = 0.999, eps = 1e-8;
+    function adamUpd(W, M, V, G, shape) {
+      for (let i = 0; i < shape[0]; i++) for (let j = 0; j < shape[1]; j++) {
+        const g = G[i][j] * scale;
+        M[i][j] = b1m * M[i][j] + (1 - b1m) * g;
+        V[i][j] = b2m * V[i][j] + (1 - b2m) * g * g;
+        const mh = M[i][j] / (1 - Math.pow(b1m, adamT));
+        const vh = V[i][j] / (1 - Math.pow(b2m, adamT));
+        W[i][j] -= lr * mh / (Math.sqrt(vh) + eps);
+      }
+    }
+    function adamUpdV(W, M, V, G, n) {
+      for (let i = 0; i < n; i++) {
+        const g = G[i] * scale;
+        M[i] = b1m * M[i] + (1 - b1m) * g;
+        V[i] = b2m * V[i] + (1 - b2m) * g * g;
+        const mh = M[i] / (1 - Math.pow(b1m, adamT));
+        const vh = V[i] / (1 - Math.pow(b2m, adamT));
+        W[i] -= lr * mh / (Math.sqrt(vh) + eps);
+      }
+    }
+    adamUpd(W1, mW1, vW1, gW1, [2, H]);
+    adamUpdV(b1, mB1, vB1, gB1, H);
+    adamUpd(W2, mW2, vW2, gW2, [H, 2]);
+    adamUpdV(b2, mB2, vB2, gB2, 2);
+  }
+
+  const avgLoss = totalLoss / N;
+  const acc = correct / N;
+  lossHist.push(avgLoss);
+  accHist.push(acc);
+  if (lossHist.length > 200) { lossHist.shift(); accHist.shift(); }
+  // landscape trajectory — project to 2D (sum of W1[0], sum of W2[0])
+  let pX = 0, pY = 0;
+  for (let j = 0; j < H; j++) { pX += W1[0][j]; pY += W2[j][0]; }
+  pathHist.push({ x: pX, y: pY, loss: avgLoss });
+  if (pathHist.length > 60) pathHist.shift();
+  return { loss: avgLoss, acc };
+}
+
+/* === Datasets === */
+function genDataset(name) {
+  xs = []; ys = [];
+  const rgen = (mu, sigma) => mu + (Math.random()*2-1)*sigma;
+  for (let i = 0; i < nSamples; i++) {
+    let x = 0, y = 0, lab = 0;
+    if (name === "blobs") {
+      lab = i < nSamples/2 ? 0 : 1;
+      x = lab ? rgen(0.5, 0.18) : rgen(-0.5, 0.18);
+      y = lab ? rgen(0.4, 0.18) : rgen(-0.4, 0.18);
+    } else if (name === "moons") {
+      lab = i < nSamples/2 ? 0 : 1;
+      const t = Math.random() * Math.PI;
+      if (lab === 0) { x = Math.cos(t); y = Math.sin(t); }
+      else { x = 1 - Math.cos(t); y = -Math.sin(t) + 0.5; }
+      x *= 0.7; y *= 0.7;
+      x -= 0.35; y -= 0.2;
+    } else if (name === "circle") {
+      const r = Math.random() < 0.5 ? Math.random()*0.3 : 0.55 + Math.random()*0.25;
+      lab = r < 0.4 ? 0 : 1;
+      const t = Math.random() * 2 * Math.PI;
+      x = r * Math.cos(t); y = r * Math.sin(t);
+    } else if (name === "spiral") {
+      lab = i < nSamples/2 ? 0 : 1;
+      const t = (i % (nSamples/2)) / (nSamples/2) * 3.5;
+      const sign = lab === 0 ? 1 : -1;
+      x = sign * t * Math.cos(t) * 0.18;
+      y = sign * t * Math.sin(t) * 0.18;
+    } else if (name === "xor") {
+      x = Math.random()*2-1; y = Math.random()*2-1;
+      lab = (x*y > 0) ? 0 : 1;
+    } else if (name === "noise") {
+      x = Math.random()*2-1; y = Math.random()*2-1;
+      lab = y > Math.sin(x*3)*0.4 ? 1 : 0;
+    }
+    x += (Math.random()*2-1)*noiseSigma; y += (Math.random()*2-1)*noiseSigma;
+    xs.push([x, y]); ys.push(lab);
+  }
+}
+
+/* === Render decision boundary === */
+function renderBoundary() {
+  const cv = document.getElementById("boundary");
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const W = cv.offsetWidth, Hd = cv.offsetHeight;
+  // grid forward pass
+  const GS = 60;
+  const cell = Math.min(W, Hd) / GS;
+  const ox = (W - GS*cell)/2, oy = (Hd - GS*cell)/2;
+  for (let i = 0; i < GS; i++) for (let j = 0; j < GS; j++) {
+    const x = (j/GS)*2 - 1, y = -((i/GS)*2 - 1);
+    const { p } = forward([x, y]);
+    const d = p[1] - p[0]; // -1..1
+    let r,g,b;
+    if (d >= 0) { r = Math.floor(255*d); g = Math.floor(212*d); b = 0; }
+    else        { r = Math.floor(255*-d); g = Math.floor(51*-d); b = Math.floor(102*-d); }
+    ctx.fillStyle = `rgba(${r},${g},${b},${0.85})`;
+    ctx.fillRect(ox + j*cell, oy + i*cell, cell+0.5, cell+0.5);
+  }
+  // contour at boundary p=0.5
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+  for (let i = 0; i < GS-1; i++) for (let j = 0; j < GS-1; j++) {
+    const v00 = forward([(j/GS)*2-1, -((i/GS)*2-1)]).p[1] - 0.5;
+    const v10 = forward([((j+1)/GS)*2-1, -((i/GS)*2-1)]).p[1] - 0.5;
+    if (v00*v10 < 0) {
+      ctx.beginPath(); ctx.moveTo(ox+(j+1)*cell, oy+i*cell);
+      ctx.lineTo(ox+(j+1)*cell, oy+(i+1)*cell); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+  // data points
+  for (let i = 0; i < xs.length; i++) {
+    const x = xs[i][0], y = xs[i][1];
+    const sx = ox + ((x+1)/2)*GS*cell, sy = oy + ((1-(y+1)/2))*GS*cell;
+    ctx.fillStyle = ys[i] === 1 ? "#ffd400" : "#ff3366";
+    ctx.strokeStyle = "#06080c"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sx, sy, 4, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+  // border
+  ctx.strokeStyle = "rgba(255,255,255,0.15)"; ctx.lineWidth = 1;
+  ctx.strokeRect(ox-0.5, oy-0.5, GS*cell+1, GS*cell+1);
+}
+
+function chart(id, data, color, max) {
+  const cv = document.getElementById(id);
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const W = cv.offsetWidth, Hd = cv.offsetHeight;
+  ctx.clearRect(0, 0, W, Hd);
+  // grid
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  for (let i = 0; i <= 4; i++) {
+    const y = (i/4)*(Hd-30) + 10;
+    ctx.beginPath(); ctx.moveTo(10, y); ctx.lineTo(W-6, y); ctx.stroke();
+  }
+  if (data.length < 2) return;
+  const mx = max !== undefined ? max : Math.max(...data) * 1.05;
+  const mn = max !== undefined ? 0 : Math.min(...data) * 0.95;
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = 10 + (i/(data.length-1)) * (W-16);
+    const y = Hd - 20 - ((v-mn)/(mx-mn || 1)) * (Hd-30);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  // current value
+  const lastV = data[data.length-1];
+  const lastX = W - 6, lastY = Hd - 20 - ((lastV-mn)/(mx-mn || 1)) * (Hd-30);
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(W-10, lastY, 2.5, 0, Math.PI*2); ctx.fill();
+  ctx.font = "10px JetBrains Mono"; ctx.fillStyle = color;
+  ctx.textAlign = "right";
+  ctx.fillText(lastV.toFixed(3), W - 8, 14);
+  ctx.textAlign = "left";
+}
+
+function landscape() {
+  const cv = document.getElementById("lossLandscape");
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const W = cv.offsetWidth, Hd = cv.offsetHeight;
+  // synthetic 2D loss surface: rosenbrock-ish
+  for (let y = 0; y < Hd; y += 3) for (let x = 0; x < W; x += 3) {
+    const u = (x/W)*4 - 2, v = (y/Hd)*4 - 2;
+    const loss = 0.5*(u*u + v*v) + 0.3*Math.cos(u*2)*Math.cos(v*2);
+    const t = Math.min(1, loss/4);
+    ctx.fillStyle = `rgb(${Math.floor(255*t*0.3)},${Math.floor(212*t*0.2)},${Math.floor(40*(1-t))})`;
+    ctx.fillRect(x, y, 3, 3);
+  }
+  // trajectory
+  if (pathHist.length > 1) {
+    ctx.strokeStyle = "#ffd400"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    pathHist.forEach((p, i) => {
+      const px = (p.x / 5 + 1) * W/2, py = (p.y / 5 + 1) * Hd/2;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+    const last = pathHist[pathHist.length-1];
+    const px = (last.x / 5 + 1) * W/2, py = (last.y / 5 + 1) * Hd/2;
+    ctx.fillStyle = "#ff3366";
+    ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI*2); ctx.fill();
+  }
+}
+
+function weightMap(id, W, rows, cols) {
+  const cv = document.getElementById(id);
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const Wd = cv.offsetWidth, Hd = cv.offsetHeight;
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,Wd,Hd);
+  let mx = 1e-6;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) if (Math.abs(W[i][j]) > mx) mx = Math.abs(W[i][j]);
+  const cellW = Wd / cols, cellH = Hd / rows;
+  for (let i = 0; i < rows; i++) for (let j = 0; j < cols; j++) {
+    const v = W[i][j] / mx;
+    let r, g, b;
+    if (v >= 0) { r = Math.floor(255*v); g = Math.floor(212*v); b = 0; }
+    else        { r = Math.floor(255*-v); g = Math.floor(51*-v); b = Math.floor(102*-v); }
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(j*cellW, i*cellH, cellW+0.5, cellH+0.5);
+  }
+  // grid
+  ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 1;
+  for (let j = 0; j <= cols; j++) { ctx.beginPath(); ctx.moveTo(j*cellW, 0); ctx.lineTo(j*cellW, Hd); ctx.stroke(); }
+  for (let i = 0; i <= rows; i++) { ctx.beginPath(); ctx.moveTo(0, i*cellH); ctx.lineTo(Wd, i*cellH); ctx.stroke(); }
+}
+
+let epoch = 0, step = 0;
+function tick() {
+  if (running) {
+    const r = trainStep(); step++;
+    if (step % xs.length === 0) epoch++;
+    document.getElementById("epochR").textContent = epoch;
+    document.getElementById("stepR").textContent = step;
+    document.getElementById("lossR").textContent = r.loss.toFixed(4);
+    document.getElementById("accR").textContent = (r.acc*100).toFixed(1) + "%";
+  }
+  renderBoundary();
+  chart("lossChart", lossHist, "#ff3366");
+  chart("accChart", accHist, "#ffd400", 1);
+  landscape();
+  weightMap("w1Map", W1, 2, H);
+  weightMap("w2Map", W2, H, 2);
+  document.getElementById("w1Shape").textContent = `[2 × ${H}]`;
+  document.getElementById("w2Shape").textContent = `[${H} × 2]`;
+  requestAnimationFrame(tick);
+}
+
+/* events */
+document.querySelectorAll("[data-ds]").forEach(b => b.addEventListener("click", () => {
+  dataset = b.dataset.ds; genDataset(dataset); initParams(); epoch = step = 0;
+}));
+document.getElementById("samples").addEventListener("input", e => {
+  nSamples = +e.target.value; document.getElementById("samplesV").textContent = nSamples; genDataset(dataset);
+});
+document.getElementById("noise").addEventListener("input", e => {
+  noiseSigma = +e.target.value; document.getElementById("noiseV").textContent = noiseSigma.toFixed(2); genDataset(dataset);
+});
+document.getElementById("hidden").addEventListener("input", e => {
+  H = +e.target.value; document.getElementById("hiddenV").textContent = H; initParams(); epoch = step = 0;
+});
+document.getElementById("lr").addEventListener("input", e => {
+  const v = +e.target.value; lr = Math.pow(10, v);
+  document.getElementById("lrV").textContent = lr.toFixed(4);
+});
+document.getElementById("momentum").addEventListener("input", e => {
+  mom = +e.target.value; document.getElementById("momentumV").textContent = mom.toFixed(2);
+});
+document.getElementById("actFn").addEventListener("change", e => actName = e.target.value);
+document.getElementById("opt").addEventListener("change", e => { opt = e.target.value; initParams(); });
+document.getElementById("trainBtn").addEventListener("click", e => {
+  running = !running; e.target.textContent = running ? "❚❚ PAUSE" : "▶ TRAIN";
+});
+document.getElementById("stepBtn").addEventListener("click", () => { trainStep(); step++; });
+document.getElementById("resetBtn").addEventListener("click", () => { initParams(); epoch = step = 0; });
+
+genDataset("moons");
+initParams();
+running = true; document.getElementById("trainBtn").textContent = "❚❚ PAUSE";
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

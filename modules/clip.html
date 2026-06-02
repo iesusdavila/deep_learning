@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CLIP & OpenCLIP · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .tower { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .tower .block { width:150px; padding:10px 12px; border:1px solid var(--hairline); background:var(--raised); font-family:var(--font-mono); font-size:11px; text-align:center; color:var(--text-2); }
+  .tower .block.accent { border-color:var(--accent); color:var(--accent); }
+  .tower .block.magenta { border-color:var(--magenta); color:var(--magenta); }
+  .tower .conn { width:1px; height:14px; background:var(--hairline-strong); }
+  .matrix-grid { display:grid; gap:2px; }
+  .matrix-grid .cell { aspect-ratio:1; display:grid; place-items:center; font-family:var(--font-mono); font-size:10px; font-variant-numeric:tabular-nums; position:relative; }
+  .zs-bar { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .zs-bar .name { width:120px; font-family:var(--font-mono); font-size:11px; color:var(--text-2); }
+  .zs-bar .track { flex:1; height:18px; background:var(--raised); border:1px solid var(--hairline); position:relative; }
+  .zs-bar .track > i { display:block; height:100%; background:var(--accent); transition:width .4s cubic-bezier(.2,.8,.2,1); }
+  .zs-bar .pct { width:54px; text-align:right; font-family:var(--font-mono); font-size:11px; color:var(--accent); }
+  .zs-bar.win .track > i { background:var(--accent); }
+  .zs-bar:not(.win) .track > i { background:rgba(255,212,0,0.25); }
+  .imgcell { border:1px solid var(--hairline); cursor:pointer; transition:border-color .15s; }
+  .imgcell:hover { border-color:var(--accent); }
+  .imgcell.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M06 CLIP">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M11 / ARCHITECTURES</div>
+      <h1>CLIP. <em>Teach a model to read</em><br>and to see — <em>in the same space</em>.</h1>
+      <p class="lede">CLIP doesn't classify into fixed labels. It learns one shared space where an image of a cat and the words "a photo of a cat" land in the same place. Once you have that, classification becomes a similarity lookup — and you can invent new classes just by typing them.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 06.01</b> · CONTRASTIVE.ALIGN</span>
+        <span><b>PARADIGM</b> · DUAL-ENCODER · CONTRASTIVE</span>
+        <span><b>CLASSES</b> · 6</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- THE BIG IDEA -->
+      <div class="section-title"><span class="num">// 01</span><h2>The idea · two encoders, one space</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-7">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> DUAL-ENCODER ARCHITECTURE</div>
+            <div class="panel-body">
+              <div style="display:flex;align-items:center;justify-content:space-around;gap:16px;flex-wrap:wrap;">
+                <div class="tower">
+                  <canvas id="towerImg" width="64" height="64" style="border:1px solid var(--accent);image-rendering:pixelated;"></canvas>
+                  <div class="conn"></div>
+                  <div class="block accent">IMAGE ENCODER<br><span style="color:var(--text-3)">ViT-B/32 or ResNet</span></div>
+                  <div class="conn"></div>
+                  <div class="block">image vector<br><span style="color:var(--accent)">I ∈ ℝ⁵¹²</span></div>
+                </div>
+
+                <div style="text-align:center;">
+                  <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-3);margin-bottom:8px;">SHARED<br>EMBEDDING SPACE</div>
+                  <div style="width:90px;height:90px;border:1px dashed var(--hairline-strong);border-radius:50%;display:grid;place-items:center;position:relative;">
+                    <div style="width:8px;height:8px;background:var(--accent);border-radius:50%;position:absolute;top:30%;left:38%;"></div>
+                    <div style="width:8px;height:8px;background:var(--magenta);border-radius:50%;position:absolute;top:36%;left:46%;"></div>
+                    <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-3);position:absolute;bottom:6px;">cos θ → 1</span>
+                  </div>
+                  <div style="font-family:var(--font-mono);font-size:10px;color:var(--accent);margin-top:8px;">pull matched<br>pairs together</div>
+                </div>
+
+                <div class="tower">
+                  <div style="width:64px;height:64px;border:1px solid var(--magenta);display:grid;place-items:center;font-family:var(--font-mono);font-size:9px;color:var(--magenta);text-align:center;line-height:1.3;">"a photo<br>of a cat"</div>
+                  <div class="conn"></div>
+                  <div class="block magenta">TEXT ENCODER<br><span style="color:var(--text-3)">Transformer</span></div>
+                  <div class="conn"></div>
+                  <div class="block">text vector<br><span style="color:var(--magenta)">T ∈ ℝ⁵¹²</span></div>
+                </div>
+              </div>
+              <div class="callout mt-6">
+                <b>Why this is powerful →</b> A normal classifier has a fixed output head — 1000 ImageNet classes, no more. CLIP has <em>no</em> output head. To classify, you embed the image once and embed any set of label strings you like, then pick the closest. New class? Just write a new sentence. This is <b>zero-shot</b> classification.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> HOW TO READ THIS MODULE</div>
+            <div class="panel-body">
+              <div style="display:grid;grid-template-columns:24px 1fr;gap:0;">
+                <div style="font-family:var(--font-mono);color:var(--accent);font-size:11px;padding:10px 0;border-bottom:1px solid var(--hairline);">§2</div>
+                <div style="padding:10px 0;border-bottom:1px solid var(--hairline);"><div style="font-size:14px;">Contrastive pretraining</div><div class="small">Watch the N×N similarity matrix snap from noise to a glowing diagonal as training proceeds.</div></div>
+                <div style="font-family:var(--font-mono);color:var(--accent);font-size:11px;padding:10px 0;border-bottom:1px solid var(--hairline);">§3</div>
+                <div style="padding:10px 0;border-bottom:1px solid var(--hairline);"><div style="font-size:14px;">Zero-shot classification</div><div class="small">Click an image; CLIP scores it against six text prompts and predicts the winner.</div></div>
+                <div style="font-family:var(--font-mono);color:var(--accent);font-size:11px;padding:10px 0;border-bottom:1px solid var(--hairline);">§4</div>
+                <div style="padding:10px 0;border-bottom:1px solid var(--hairline);"><div style="font-size:14px;">Prompt engineering</div><div class="small">The exact wording of the label changes the score. See why "a photo of a {}" wins.</div></div>
+                <div style="font-family:var(--font-mono);color:var(--accent);font-size:11px;padding:10px 0;">§5</div>
+                <div style="padding:10px 0;"><div style="font-size:14px;">CLIP vs OpenCLIP</div><div class="small">What the open reproduction changed — data, scale, licensing.</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTRASTIVE PRETRAINING -->
+      <div class="section-title"><span class="num">// 02</span><h2>Contrastive pretraining · the N×N matrix</h2><div class="line"></div></div>
+      <p class="small" style="max-width:760px;margin-bottom:18px;">Take a batch of N image–caption pairs. Embed all N images and all N captions. Compute every image-to-text cosine similarity — an N×N grid. The <b style="color:var(--accent)">diagonal</b> (matched pairs) should be high; everything <b style="color:var(--magenta)">off-diagonal</b> (mismatched) should be low. The loss (InfoNCE) is just a softmax cross-entropy that says "for each row, the correct column is the diagonal."</p>
+
+      <div class="grid-12">
+        <div class="span-7">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> IMAGE × TEXT SIMILARITY <span class="right small mono muted">cosine(Iᵢ, Tⱼ)</span></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:8px;">
+                <!-- column of image thumbs -->
+                <div style="display:flex;flex-direction:column;gap:2px;padding-top:64px;" id="rowImgs"></div>
+                <div style="flex:1;">
+                  <!-- text headers -->
+                  <div id="colTexts" style="display:flex;gap:2px;height:58px;align-items:flex-end;margin-bottom:2px;"></div>
+                  <div class="matrix-grid" id="simMatrix"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> TRAINING</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">TRAIN STEP</span>
+                <input type="range" min="0" max="100" step="1" value="0" id="trainProg">
+                <span class="value" id="trainProgV">0%</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">TEMPERATURE τ</span>
+                <input type="range" min="0.02" max="0.5" step="0.01" value="0.1" id="temp">
+                <span class="value" id="tempV">0.10</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <button class="btn primary w-full" id="autoTrain" style="flex:1;">▶ AUTO-TRAIN</button>
+                <button class="btn" id="resetTrain">⟲</button>
+              </div>
+              <div class="mt-4" style="font-family:var(--font-mono);font-size:12px;line-height:1.8;">
+                <div>InfoNCE loss · <span style="color:var(--magenta)" id="lossV">2.48</span></div>
+                <div>diagonal mean · <span style="color:var(--accent)" id="diagV">0.18</span></div>
+                <div>off-diag mean · <span style="color:var(--text-2)" id="offV">0.16</span></div>
+                <div>batch accuracy · <span style="color:var(--accent)" id="accV">17%</span></div>
+              </div>
+              <div class="panel mt-4" style="background:var(--void);">
+                <div class="panel-body" style="text-align:center;font-family:var(--font-mono);font-size:13px;line-height:2;">
+                  <div style="color:var(--text-2);font-size:12px;">L = ½(L<sub>img→txt</sub> + L<sub>txt→img</sub>)</div>
+                  <div style="color:var(--accent);">L<sub>i→t</sub> = −log <span style="color:var(--text-2)">exp(sᵢᵢ/τ) / Σⱼ exp(sᵢⱼ/τ)</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ZERO-SHOT -->
+      <div class="section-title"><span class="num">// 03</span><h2>Zero-shot classification · the payoff</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-5">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> PICK A TEST IMAGE <span class="right small mono muted">unseen samples</span></div>
+            <div class="panel-body">
+              <div id="zsImages" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"></div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">PROMPT TEMPLATE</span>
+                <select id="promptTpl" style="flex:1;">
+                  <option value="photo">"a photo of a {class}"</option>
+                  <option value="bare">"{class}"</option>
+                  <option value="blurry">"a blurry photo of a {class}"</option>
+                  <option value="art">"a painting of a {class}"</option>
+                </select>
+              </div>
+              <div class="small muted mt-2 mono" id="promptShown">prompt set: "a photo of a cat" · "a photo of a dog" · …</div>
+            </div>
+          </div>
+        </div>
+        <div class="span-7">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> SOFTMAX OVER PROMPT SIMILARITIES <span class="right small mono muted" id="zsVerdict">prediction → cat</span></div>
+            <div class="panel-body">
+              <div id="zsBars"></div>
+              <div class="callout mt-4">
+                <b>What just happened →</b> The image was embedded <em>once</em>. Each label string was embedded into the <em>same</em> space. We took cosine similarity, divided by temperature, and softmaxed. No retraining, no labels at train time for these specific classes — that's why it's called zero-shot.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- OPENCLIP -->
+      <div class="section-title"><span class="num">// 04</span><h2>CLIP vs OpenCLIP · same recipe, open kitchen</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-7">
+          <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;background:var(--panel);border:1px solid var(--hairline);">
+            <thead><tr style="border-bottom:1px solid var(--hairline);">
+              <th style="padding:12px 16px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;letter-spacing:0.08em;">ASPECT</th>
+              <th style="padding:12px 16px;text-align:left;color:var(--accent);font-weight:400;font-size:10px;letter-spacing:0.08em;">CLIP (OpenAI '21)</th>
+              <th style="padding:12px 16px;text-align:left;color:var(--magenta);font-weight:400;font-size:10px;letter-spacing:0.08em;">OpenCLIP (LAION)</th>
+            </tr></thead>
+            <tbody>
+              <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--text-2);">Training data</td><td style="padding:11px 16px;">400M private pairs (WIT)</td><td style="padding:11px 16px;">LAION-400M / 2B / DataComp — public</td></tr>
+              <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--text-2);">Weights</td><td style="padding:11px 16px;">released; data not</td><td style="padding:11px 16px;">weights + data + code all open</td></tr>
+              <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--text-2);">Backbones</td><td style="padding:11px 16px;">ResNet-50…, ViT-B/32…L/14</td><td style="padding:11px 16px;">adds ViT-G/14, ConvNeXt, more</td></tr>
+              <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--text-2);">Scaling laws</td><td style="padding:11px 16px;">implicit</td><td style="padding:11px 16px;">explicitly studied & reproducible</td></tr>
+              <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--text-2);">Top zero-shot (IN-1k)</td><td style="padding:11px 16px;">~76% (ViT-L/14)</td><td style="padding:11px 16px;">~80%+ (ViT-G/14, bigger data)</td></tr>
+              <tr style="border-top:1px solid var(--hairline);"><td style="padding:11px 16px;color:var(--text-2);">Why it matters</td><td style="padding:11px 16px;">proved the recipe</td><td style="padding:11px 16px;">made it auditable & extendable</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="span-5">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> THE TAKEAWAY</div>
+            <div class="panel-body small" style="line-height:1.7;">
+              <p style="margin-top:0;"><b style="color:var(--accent)">OpenCLIP</b> is not a different model — it's the same contrastive recipe re-implemented in the open by LAION, trained on publicly downloadable image-text pairs. Because everything is public, researchers can study exactly how zero-shot accuracy scales with data size and model size.</p>
+              <p>Practically: if you want a CLIP model you can fine-tune, audit, or ship commercially without licensing worry, you reach for OpenCLIP. The <span class="mono">open_clip</span> library is the de-facto standard interface, and most newer vision-language models bootstrap from an OpenCLIP backbone.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout mt-8">
+        <b>The mental model →</b> CLIP turns "classification" into "search". Build the catalogue of text vectors once; embed any image; nearest neighbour wins. That's also why CLIP powers text-to-image search, image dedup, and the text guidance inside diffusion models.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script src="../assets/imagery.js"></script>
+<script>CORTEX.mount("clip", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; ARCHITECTURES &nbsp;/&nbsp; <b style='color:var(--accent)'>CLIP & OPENCLIP</b>");</script>
+
+<script>
+const { CLASSES, PROMPTS, draw, normalize, cosine } = CVImagery;
+
+// tower demo image
+draw(document.getElementById("towerImg").getContext("2d"), "cat", 64, 0, 0, 3);
+
+/* ===== §2 contrastive matrix ===== */
+let trainProg = 0, temp = 0.1;
+const batch = CLASSES.map((c, i) => ({ cls: c, seed: i * 7 + 3 }));
+
+function embAt(cls, seed, t) {
+  // interpolate between random (t=0) and concept-aligned (t=1)
+  const concept = CVImagery.CONCEPT[cls];
+  const r = CVImagery.rng(seed * 977 + 13);
+  const v = [];
+  for (let i = 0; i < 12; i++) {
+    const noise = (r() * 2 - 1);
+    v.push(concept[i % 12] * t + noise * (1 - t) * 1.2 + (r() * 2 - 1) * 0.18);
+  }
+  return normalize(v);
+}
+function txtEmbAt(cls, t) {
+  const concept = CVImagery.CONCEPT[cls];
+  const r = CVImagery.rng(cls.length * 313 + 7);
+  const v = [];
+  for (let i = 0; i < 12; i++) {
+    const noise = (r() * 2 - 1);
+    v.push(concept[i % 12] * t + noise * (1 - t) * 1.2 + (r() * 2 - 1) * 0.08);
+  }
+  return normalize(v);
+}
+
+function renderMatrix() {
+  const t = trainProg / 100;
+  const N = batch.length;
+  const imgEmbs = batch.map(b => embAt(b.cls, b.seed, t));
+  const txtEmbs = batch.map(b => txtEmbAt(b.cls, t));
+
+  // row images
+  const rowImgs = document.getElementById("rowImgs");
+  if (rowImgs.children.length === 0) {
+    batch.forEach(b => {
+      const cv = document.createElement("canvas"); cv.width = 48; cv.height = 48;
+      cv.style.cssText = "width:46px;height:46px;border:1px solid var(--accent);image-rendering:pixelated;";
+      draw(cv.getContext("2d"), b.cls, 48, 0, 0, b.seed);
+      rowImgs.appendChild(cv);
+    });
+    const colTexts = document.getElementById("colTexts");
+    batch.forEach(b => {
+      const d = document.createElement("div");
+      d.style.cssText = "flex:1;font-family:var(--font-mono);font-size:9px;color:var(--magenta);writing-mode:vertical-rl;text-orientation:mixed;text-align:right;white-space:nowrap;";
+      d.textContent = '"…' + b.cls + '"';
+      colTexts.appendChild(d);
+    });
+  }
+
+  const grid = document.getElementById("simMatrix");
+  grid.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  grid.innerHTML = "";
+  let diagSum = 0, offSum = 0, offCount = 0, correct = 0, loss = 0;
+  for (let i = 0; i < N; i++) {
+    // row softmax for loss/accuracy
+    const sims = txtEmbs.map(te => cosine(imgEmbs[i], te));
+    const exps = sims.map(s => Math.exp(s / temp));
+    const Z = exps.reduce((a, b) => a + b, 0);
+    const probs = exps.map(e => e / Z);
+    loss += -Math.log(Math.max(1e-9, probs[i]));
+    if (probs.indexOf(Math.max(...probs)) === i) correct++;
+    for (let j = 0; j < N; j++) {
+      const s = sims[j];
+      if (i === j) diagSum += s; else { offSum += s; offCount++; }
+      const cell = document.createElement("div");
+      cell.className = "cell";
+      const v = Math.max(0, Math.min(1, (s + 0.3) / 1.3));
+      if (i === j) {
+        cell.style.background = `rgba(255,212,0,${0.15 + v * 0.85})`;
+        cell.style.color = v > 0.5 ? "#06080c" : "var(--accent)";
+        cell.style.outline = "1px solid var(--accent)";
+      } else {
+        cell.style.background = `rgba(255,51,102,${v * 0.5})`;
+        cell.style.color = "var(--text-3)";
+      }
+      cell.textContent = s.toFixed(2);
+      grid.appendChild(cell);
+    }
+  }
+  document.getElementById("lossV").textContent = (loss / N).toFixed(2);
+  document.getElementById("diagV").textContent = (diagSum / N).toFixed(2);
+  document.getElementById("offV").textContent = (offSum / offCount).toFixed(2);
+  document.getElementById("accV").textContent = Math.round(correct / N * 100) + "%";
+}
+
+document.getElementById("trainProg").addEventListener("input", e => {
+  trainProg = +e.target.value; document.getElementById("trainProgV").textContent = trainProg + "%"; renderMatrix();
+});
+document.getElementById("temp").addEventListener("input", e => {
+  temp = +e.target.value; document.getElementById("tempV").textContent = temp.toFixed(2); renderMatrix();
+});
+let autoT = null;
+document.getElementById("autoTrain").addEventListener("click", e => {
+  if (autoT) { clearInterval(autoT); autoT = null; e.target.textContent = "▶ AUTO-TRAIN"; return; }
+  e.target.textContent = "❚❚ PAUSE";
+  autoT = setInterval(() => {
+    trainProg = Math.min(100, trainProg + 2);
+    document.getElementById("trainProg").value = trainProg;
+    document.getElementById("trainProgV").textContent = trainProg + "%";
+    renderMatrix();
+    if (trainProg >= 100) { clearInterval(autoT); autoT = null; e.target.textContent = "▶ AUTO-TRAIN"; }
+  }, 80);
+});
+document.getElementById("resetTrain").addEventListener("click", () => {
+  trainProg = 0; document.getElementById("trainProg").value = 0; document.getElementById("trainProgV").textContent = "0%"; renderMatrix();
+});
+
+/* ===== §3 zero-shot ===== */
+const zsSamples = [
+  { cls: "cat", seed: 21 }, { cls: "dog", seed: 22 }, { cls: "car", seed: 23 },
+  { cls: "bird", seed: 24 }, { cls: "tree", seed: 25 }, { cls: "flower", seed: 26 },
+];
+let zsSelected = 0, promptTpl = "photo";
+const TPL_BONUS = { photo: 0.10, bare: 0.0, blurry: 0.04, art: 0.02 };
+const TPL_TEXT = { photo: "a photo of a {}", bare: "{}", blurry: "a blurry photo of a {}", art: "a painting of a {}" };
+
+function renderZsImages() {
+  const wrap = document.getElementById("zsImages");
+  wrap.innerHTML = "";
+  zsSamples.forEach((s, idx) => {
+    const cv = document.createElement("canvas"); cv.width = 90; cv.height = 90;
+    cv.className = "imgcell" + (idx === zsSelected ? " sel" : "");
+    cv.style.cssText += "width:100%;aspect-ratio:1;image-rendering:pixelated;";
+    draw(cv.getContext("2d"), s.cls, 90, 0, 0, s.seed);
+    cv.addEventListener("click", () => { zsSelected = idx; renderZsImages(); renderZs(); });
+    wrap.appendChild(cv);
+  });
+}
+function renderZs() {
+  const s = zsSamples[zsSelected];
+  const imgEmb = embAt(s.cls, s.seed, 1);
+  const sims = CLASSES.map(c => {
+    let sim = cosine(imgEmb, txtEmbAt(c, 1));
+    if (c === s.cls) sim += TPL_BONUS[promptTpl]; // canonical template helps the true class
+    return { cls: c, sim };
+  });
+  const exps = sims.map(x => Math.exp(x.sim / 0.08));
+  const Z = exps.reduce((a, b) => a + b, 0);
+  sims.forEach((x, i) => x.p = exps[i] / Z);
+  const sorted = [...sims].sort((a, b) => b.p - a.p);
+  const bars = document.getElementById("zsBars");
+  bars.innerHTML = "";
+  sorted.forEach((x, rank) => {
+    const row = document.createElement("div");
+    row.className = "zs-bar" + (rank === 0 ? " win" : "");
+    row.innerHTML = `
+      <div class="name">${TPL_TEXT[promptTpl].replace("{}", x.cls)}</div>
+      <div class="track"><i style="width:${(x.p*100).toFixed(1)}%"></i></div>
+      <div class="pct">${(x.p*100).toFixed(1)}%</div>`;
+    bars.appendChild(row);
+  });
+  document.getElementById("zsVerdict").innerHTML = `prediction → <span style="color:var(--accent)">${sorted[0].cls}</span> ${sorted[0].cls === s.cls ? "✓" : "✗"}`;
+  document.getElementById("promptShown").textContent = "prompt set: " + CLASSES.map(c => '"' + TPL_TEXT[promptTpl].replace("{}", c) + '"').slice(0,3).join(" · ") + " · …";
+}
+document.getElementById("promptTpl").addEventListener("change", e => { promptTpl = e.target.value; renderZs(); });
+
+renderMatrix();
+renderZsImages();
+renderZs();
+</script>
+</body>
+</html>

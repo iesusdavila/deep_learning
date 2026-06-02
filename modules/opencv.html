@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>OpenCV Lab · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="M07 OpenCV">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M14 / LABORATORY</div>
+      <h1>OpenCV. <em>Classical CV</em>,<br>before everything went neural.</h1>
+      <p class="lede">Threshold, morph, contour, transform. The toolbox that ran computer vision for thirty years still does most of the work — fast, deterministic, no weights. Eleven operations, one image, every slider live.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 07.01</b> · OPENCV.TOOLBOX</span>
+        <span><b>IMAGE</b> · <span style="color:var(--text)" id="imgName">circuit</span></span>
+        <span><b>SIZE</b> · 256×256 · 1ch</span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- 11 operations -->
+      <div class="grid-12">
+        <!-- THRESHOLD -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 01 · THRESHOLD <span class="right small mono muted">cv2.threshold</span></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:14px;align-items:center;justify-content:center;">
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">SOURCE</div>
+                  <canvas data-op="src" width="180" height="180" style="background:#000;"></canvas>
+                </div>
+                <div class="mono" style="color:var(--accent);font-size:18px;">→</div>
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">THRESHOLDED</div>
+                  <canvas id="threshC" width="180" height="180" style="background:#000;"></canvas>
+                </div>
+              </div>
+              <div class="ctrl-row mt-4">
+                <span class="label">THRESHOLD</span>
+                <input type="range" min="0" max="255" step="1" value="128" id="threshV">
+                <span class="value" id="threshL">128</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">MODE</span>
+                <select id="threshMode" style="flex:1;">
+                  <option>BINARY</option>
+                  <option>BINARY_INV</option>
+                  <option>TRUNC</option>
+                  <option>OTSU</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HISTOGRAM -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 02 · HISTOGRAM + EQUALIZATION</div>
+            <div class="panel-body">
+              <canvas id="histC" width="500" height="180" style="width:100%;height:180px;background:#000;"></canvas>
+              <div class="flex gap-2 mt-4" style="justify-content:center;">
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">ORIGINAL</div>
+                  <canvas data-op="src" width="120" height="120" style="background:#000;"></canvas>
+                </div>
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">EQUALIZED</div>
+                  <canvas id="eqC" width="120" height="120" style="background:#000;"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MORPHOLOGY -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 03 · MORPHOLOGY <span class="right small mono muted">erode / dilate / open / close</span></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;">
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">BINARY IN</div>
+                  <canvas id="morphIn" width="140" height="140" style="background:#000;"></canvas>
+                </div>
+                <div class="mono" style="color:var(--accent);font-size:18px;">→</div>
+                <div style="text-align:center;">
+                  <div class="small muted mb-2">MORPHED</div>
+                  <canvas id="morphC" width="140" height="140" style="background:#000;"></canvas>
+                </div>
+              </div>
+              <div class="ctrl-row mt-4">
+                <span class="label">OPERATION</span>
+                <select id="morphOp" style="flex:1;">
+                  <option>ERODE</option>
+                  <option>DILATE</option>
+                  <option>OPEN</option>
+                  <option>CLOSE</option>
+                </select>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">KERNEL</span>
+                <input type="range" min="1" max="7" step="2" value="3" id="morphK">
+                <span class="value" id="morphKV">3×3</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTOURS -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 04 · CONTOURS <span class="right small mono muted">cv2.findContours</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="contourC" width="220" height="220" style="background:#000;"></canvas>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">EDGE THRESH</span>
+                <input type="range" min="10" max="200" step="5" value="50" id="edgeT">
+                <span class="value" id="edgeTV">50</span>
+              </div>
+              <div class="small muted mt-2 mono" id="contourCount">— contours</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COLOR SPACES -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 05 · COLOR SPACES <span class="right small mono muted">RGB → HSV → LAB</span></div>
+            <div class="panel-body">
+              <div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;">
+                <div style="text-align:center;"><div class="small muted mb-2 mono">RGB</div><canvas id="cs1" width="100" height="100" style="background:#000;"></canvas></div>
+                <div style="text-align:center;"><div class="small muted mb-2 mono">HSV</div><canvas id="cs2" width="100" height="100" style="background:#000;"></canvas></div>
+                <div style="text-align:center;"><div class="small muted mb-2 mono">LAB · L</div><canvas id="cs3" width="100" height="100" style="background:#000;"></canvas></div>
+                <div style="text-align:center;"><div class="small muted mb-2 mono">GRAY</div><canvas id="cs4" width="100" height="100" style="background:#000;"></canvas></div>
+              </div>
+              <div class="small muted mt-4 mono" style="text-align:center;">Different color spaces highlight different things. HSV separates hue from brightness. LAB is perceptually uniform.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GEOMETRIC TRANSFORMS -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 06 · GEOMETRIC <span class="right small mono muted">rotate · scale · translate · perspective</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="geomC" width="220" height="220" style="background:#000;"></canvas>
+              <div class="ctrl-row mt-4">
+                <span class="label">ROTATE</span>
+                <input type="range" min="-180" max="180" step="1" value="0" id="rot">
+                <span class="value" id="rotV">0°</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">SCALE</span>
+                <input type="range" min="0.3" max="2" step="0.05" value="1" id="scl">
+                <span class="value" id="sclV">1.00</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">SKEW</span>
+                <input type="range" min="-50" max="50" step="1" value="0" id="skw">
+                <span class="value" id="skwV">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MASKING -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 07 · MASKING <span class="right small mono muted">circular ROI</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="maskC" width="220" height="220" style="background:#000;"></canvas>
+              <div class="ctrl-row mt-4">
+                <span class="label">RADIUS</span>
+                <input type="range" min="20" max="120" step="1" value="80" id="maskR">
+                <span class="value" id="maskRV">80</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">FEATHER</span>
+                <input type="range" min="0" max="60" step="1" value="15" id="maskF">
+                <span class="value" id="maskFV">15</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EDGE DETECTION -->
+        <div class="span-6">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> 08 · EDGE DETECTION <span class="right small mono muted">Sobel / Canny</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="edgeC" width="220" height="220" style="background:#000;"></canvas>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">METHOD</span>
+                <select id="edgeMethod" style="flex:1;">
+                  <option>SOBEL</option>
+                  <option>CANNY</option>
+                  <option>LAPLACIAN</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- IMAGE SELECTOR -->
+      <div class="section-title">
+        <span class="num">// 02</span>
+        <h2>Source · pick the image driving all operations above</h2>
+        <div class="line"></div>
+      </div>
+      <div class="flex gap-2" style="flex-wrap:wrap;">
+        <button class="btn primary" data-src="circuit">CIRCUIT</button>
+        <button class="btn" data-src="text">TEXT</button>
+        <button class="btn" data-src="cells">CELLS</button>
+        <button class="btn" data-src="gradient">GRADIENT</button>
+        <button class="btn" data-src="noise">NOISE</button>
+        <button class="btn" data-src="contrast">HIGH-CONTRAST</button>
+      </div>
+
+      <div class="callout mt-8">
+        <b>Pre-deep-learning →</b> Every face-detector, license-plate reader, and document scanner up until ~2014 was built from operations like these. CNNs absorbed most of the workload, but classical CV is still the fastest, most predictable preprocessing layer in any vision system.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("opencv", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; LABORATORY &nbsp;/&nbsp; <b style='color:var(--accent)'>OPENCV LAB</b>");</script>
+
+<script>
+/* ===== Image generators and ops ===== */
+const SZ = 256;
+let gray = new Uint8ClampedArray(SZ*SZ);
+let color = new Uint8ClampedArray(SZ*SZ*3);
+
+function gen(kind) {
+  document.getElementById("imgName").textContent = kind;
+  for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+    const i = y*SZ+x;
+    let v = 0, r = 0, g = 0, b = 0;
+    if (kind === "circuit") {
+      const u = (x/SZ)*8, w = (y/SZ)*8;
+      const grid = (Math.abs(((u + 0.3)%1) - 0.5) < 0.08 || Math.abs(((w + 0.6)%1) - 0.5) < 0.08) ? 220 : 30;
+      const dots = (Math.hypot(((u%1)-0.5), ((w%1)-0.5)) < 0.2) ? 250 : 0;
+      v = Math.max(grid, dots);
+      r = v; g = v + 20; b = v;
+    } else if (kind === "text") {
+      v = 240;
+      const yy = y % 32, xx = x % 32;
+      if (yy > 4 && yy < 28) {
+        // bars representing text
+        if (xx % 6 < 4 && (Math.floor(x/32) + Math.floor(y/32)) % 3 !== 0) v = 30;
+      }
+      r = v; g = v; b = v;
+    } else if (kind === "cells") {
+      v = 50;
+      // 5 ellipses
+      const centers = [[64,64],[160,80],[100,170],[200,180],[70,200],[180,40]];
+      for (const [cx, cy] of centers) {
+        const r0 = Math.hypot(x-cx, y-cy) / 40;
+        v = Math.max(v, Math.exp(-r0*r0) * 220);
+      }
+      v = Math.min(255, v + (Math.random()*30 - 15));
+      r = v + 20; g = v; b = v - 10;
+    } else if (kind === "gradient") {
+      v = Math.floor(((x + y)/(2*SZ)) * 255);
+      r = v; g = Math.floor(((SZ-y)/SZ) * 220); b = Math.floor((x/SZ) * 220);
+    } else if (kind === "noise") {
+      v = Math.floor(Math.random() * 255);
+      r = v; g = v; b = v;
+    } else if (kind === "contrast") {
+      v = (x > 128 ? 230 : 30) ^ (y > 128 ? 0 : 0);
+      v = (x > 128) === (y > 128) ? 230 : 30;
+      r = v; g = v; b = v;
+    }
+    gray[i] = v;
+    color[i*3] = r; color[i*3+1] = g; color[i*3+2] = b;
+  }
+}
+
+function paintGray(cvSel, data) {
+  document.querySelectorAll(cvSel).forEach(cv => {
+    const ctx = cv.getContext("2d");
+    const W = cv.width, H = cv.height;
+    const id = ctx.createImageData(W, H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const sx = Math.floor(x * SZ / W), sy = Math.floor(y * SZ / H);
+      const v = data[sy*SZ+sx];
+      const i = (y*W+x)*4;
+      id.data[i] = v; id.data[i+1] = v; id.data[i+2] = v; id.data[i+3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+  });
+}
+
+function paintColor(cv, data) {
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x * SZ / W), sy = Math.floor(y * SZ / H);
+    const i = (y*W+x)*4, si = (sy*SZ+sx)*3;
+    id.data[i] = data[si]; id.data[i+1] = data[si+1]; id.data[i+2] = data[si+2]; id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function paintBinary(cv, data) {
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x * SZ / W), sy = Math.floor(y * SZ / H);
+    const v = data[sy*SZ+sx];
+    const i = (y*W+x)*4;
+    if (v > 0) { id.data[i] = 255; id.data[i+1] = 212; id.data[i+2] = 0; }
+    else       { id.data[i] = 10; id.data[i+1] = 10; id.data[i+2] = 14; }
+    id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+/* OPS */
+function threshOp(data, t, mode) {
+  const r = new Uint8ClampedArray(SZ*SZ);
+  // OTSU: compute optimal t via histogram
+  if (mode === "OTSU") {
+    const hist = new Array(256).fill(0);
+    for (let i = 0; i < data.length; i++) hist[data[i]]++;
+    const total = data.length;
+    let sum = 0; for (let k = 0; k < 256; k++) sum += k*hist[k];
+    let sumB = 0, wB = 0, varMax = 0, tOptimal = 0;
+    for (let k = 0; k < 256; k++) {
+      wB += hist[k]; if (wB === 0) continue;
+      const wF = total - wB; if (wF === 0) break;
+      sumB += k * hist[k];
+      const mB = sumB / wB, mF = (sum - sumB) / wF;
+      const v = wB * wF * (mB - mF) * (mB - mF);
+      if (v > varMax) { varMax = v; tOptimal = k; }
+    }
+    t = tOptimal;
+  }
+  for (let i = 0; i < data.length; i++) {
+    if (mode === "BINARY" || mode === "OTSU") r[i] = data[i] >= t ? 255 : 0;
+    else if (mode === "BINARY_INV") r[i] = data[i] >= t ? 0 : 255;
+    else r[i] = Math.min(t, data[i]);
+  }
+  return { data: r, t };
+}
+
+function histogram(data) {
+  const h = new Array(256).fill(0);
+  for (let i = 0; i < data.length; i++) h[data[i]]++;
+  return h;
+}
+
+function equalize(data) {
+  const h = histogram(data);
+  const cdf = new Array(256).fill(0);
+  cdf[0] = h[0]; for (let i = 1; i < 256; i++) cdf[i] = cdf[i-1] + h[i];
+  const cdfMin = cdf.find(v => v > 0) || 0;
+  const total = data.length;
+  const lut = new Array(256);
+  for (let i = 0; i < 256; i++) lut[i] = Math.round((cdf[i] - cdfMin) / (total - cdfMin) * 255);
+  const r = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) r[i] = lut[data[i]];
+  return r;
+}
+
+function binarize(data, t) {
+  const r = new Uint8ClampedArray(data.length);
+  for (let i = 0; i < data.length; i++) r[i] = data[i] >= t ? 255 : 0;
+  return r;
+}
+
+function morph(binary, op, k) {
+  const half = (k-1)/2;
+  const r = new Uint8ClampedArray(SZ*SZ);
+  const erode = (src) => {
+    const o = new Uint8ClampedArray(SZ*SZ);
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      let mn = 255;
+      for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+        const yy = y+dy, xx = x+dx;
+        if (yy < 0 || yy >= SZ || xx < 0 || xx >= SZ) continue;
+        if (src[yy*SZ+xx] < mn) mn = src[yy*SZ+xx];
+      }
+      o[y*SZ+x] = mn;
+    }
+    return o;
+  };
+  const dilate = (src) => {
+    const o = new Uint8ClampedArray(SZ*SZ);
+    for (let y = 0; y < SZ; y++) for (let x = 0; x < SZ; x++) {
+      let mx = 0;
+      for (let dy = -half; dy <= half; dy++) for (let dx = -half; dx <= half; dx++) {
+        const yy = y+dy, xx = x+dx;
+        if (yy < 0 || yy >= SZ || xx < 0 || xx >= SZ) continue;
+        if (src[yy*SZ+xx] > mx) mx = src[yy*SZ+xx];
+      }
+      o[y*SZ+x] = mx;
+    }
+    return o;
+  };
+  if (op === "ERODE") return erode(binary);
+  if (op === "DILATE") return dilate(binary);
+  if (op === "OPEN") return dilate(erode(binary));
+  if (op === "CLOSE") return erode(dilate(binary));
+  return binary;
+}
+
+function sobel(data) {
+  const r = new Uint8ClampedArray(SZ*SZ);
+  for (let y = 1; y < SZ-1; y++) for (let x = 1; x < SZ-1; x++) {
+    const gx = -data[(y-1)*SZ+(x-1)] + data[(y-1)*SZ+(x+1)]
+              -2*data[y*SZ+(x-1)] + 2*data[y*SZ+(x+1)]
+              -data[(y+1)*SZ+(x-1)] + data[(y+1)*SZ+(x+1)];
+    const gy = -data[(y-1)*SZ+(x-1)] - 2*data[(y-1)*SZ+x] - data[(y-1)*SZ+(x+1)]
+              +data[(y+1)*SZ+(x-1)] + 2*data[(y+1)*SZ+x] + data[(y+1)*SZ+(x+1)];
+    r[y*SZ+x] = Math.min(255, Math.hypot(gx, gy));
+  }
+  return r;
+}
+
+function laplacian(data) {
+  const r = new Uint8ClampedArray(SZ*SZ);
+  for (let y = 1; y < SZ-1; y++) for (let x = 1; x < SZ-1; x++) {
+    const v = -4*data[y*SZ+x] + data[(y-1)*SZ+x] + data[(y+1)*SZ+x] + data[y*SZ+(x-1)] + data[y*SZ+(x+1)];
+    r[y*SZ+x] = Math.min(255, Math.abs(v));
+  }
+  return r;
+}
+
+function canny(data, t) {
+  // simplified canny: sobel + threshold + non-max suppression approximation
+  const sb = sobel(data);
+  const r = new Uint8ClampedArray(SZ*SZ);
+  for (let i = 0; i < r.length; i++) r[i] = sb[i] > t ? 255 : 0;
+  return r;
+}
+
+/* HSV / LAB approximations */
+function rgbToHsv(r, g, b) {
+  r/=255; g/=255; b/=255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const d = max - min;
+  let h = 0;
+  if (d !== 0) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  h = (h * 60 + 360) % 360;
+  return [h/360, max === 0 ? 0 : d/max, max];
+}
+
+/* ===== RENDER ===== */
+function renderAll() {
+  // source canvases
+  paintGray("canvas[data-op='src']", gray);
+
+  // threshold
+  const t = +document.getElementById("threshV").value;
+  const mode = document.getElementById("threshMode").value;
+  const tr = threshOp(gray, t, mode);
+  document.getElementById("threshL").textContent = mode === "OTSU" ? `OTSU ${tr.t}` : t;
+  paintBinary(document.getElementById("threshC"), tr.data);
+
+  // histogram
+  drawHistogram();
+  paintGray("#eqC", equalize(gray));
+
+  // morph: use binary of gray
+  const bin = binarize(gray, 128);
+  paintBinary(document.getElementById("morphIn"), bin);
+  const k = +document.getElementById("morphK").value;
+  document.getElementById("morphKV").textContent = `${k}×${k}`;
+  const m = morph(bin, document.getElementById("morphOp").value, k);
+  paintBinary(document.getElementById("morphC"), m);
+
+  // contour: sobel + threshold + tracing approximation
+  const et = +document.getElementById("edgeT").value;
+  document.getElementById("edgeTV").textContent = et;
+  drawContours(et);
+
+  // color spaces
+  paintColor(document.getElementById("cs1"), color);
+  drawHSV();
+  drawLAB();
+  paintGray("#cs4", gray);
+
+  // geometric
+  drawGeom();
+
+  // mask
+  drawMask();
+
+  // edge
+  drawEdge();
+}
+
+function drawHistogram() {
+  const cv = document.getElementById("histC");
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr);
+  const W = cv.offsetWidth, H = cv.offsetHeight;
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,W,H);
+  const h = histogram(gray);
+  const mx = Math.max(...h);
+  // bars
+  ctx.fillStyle = "rgba(255,212,0,0.7)";
+  for (let i = 0; i < 256; i++) {
+    const bh = (h[i]/mx) * (H - 20);
+    ctx.fillRect((i/256)*W, H - 10 - bh, W/256, bh);
+  }
+  // axis
+  ctx.fillStyle = "var(--text-3)"; ctx.font = "9px JetBrains Mono";
+  ctx.fillText("0", 4, H - 2); ctx.fillText("255", W - 22, H - 2);
+}
+
+function drawHSV() {
+  const cv = document.getElementById("cs2");
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*SZ/W), sy = Math.floor(y*SZ/H);
+    const r = color[(sy*SZ+sx)*3], g = color[(sy*SZ+sx)*3+1], b = color[(sy*SZ+sx)*3+2];
+    const [h, s, v] = rgbToHsv(r, g, b);
+    // visualize hue with full saturation
+    const hueR = Math.floor(255 * (1 - h));
+    const hueG = Math.floor(255 * h);
+    const i = (y*W+x)*4;
+    id.data[i] = hueR; id.data[i+1] = hueG; id.data[i+2] = Math.floor(s * 200); id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function drawLAB() {
+  const cv = document.getElementById("cs3");
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*SZ/W), sy = Math.floor(y*SZ/H);
+    const r = color[(sy*SZ+sx)*3], g = color[(sy*SZ+sx)*3+1], b = color[(sy*SZ+sx)*3+2];
+    // L* approximation
+    const L = Math.cbrt((0.2126*r + 0.7152*g + 0.0722*b) / 255) * 255;
+    const i = (y*W+x)*4;
+    id.data[i] = L; id.data[i+1] = L; id.data[i+2] = L; id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function drawContours(et) {
+  const cv = document.getElementById("contourC");
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const sb = sobel(gray);
+  // base
+  paintGray("#contourC", gray);
+  // overlay edges in yellow
+  const id = ctx.getImageData(0, 0, W, H);
+  let edgeCount = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*SZ/W), sy = Math.floor(y*SZ/H);
+    const v = sb[sy*SZ+sx];
+    if (v > et) {
+      const i = (y*W+x)*4;
+      id.data[i] = 255; id.data[i+1] = 212; id.data[i+2] = 0;
+      edgeCount++;
+    }
+  }
+  ctx.putImageData(id, 0, 0);
+  // approximate contour count
+  document.getElementById("contourCount").textContent = `${Math.floor(edgeCount/40)} contours · ${edgeCount} edge px`;
+}
+
+function drawGeom() {
+  const cv = document.getElementById("geomC");
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+  const r = +document.getElementById("rot").value;
+  const s = +document.getElementById("scl").value;
+  const sk = +document.getElementById("skw").value;
+  document.getElementById("rotV").textContent = r + "°";
+  document.getElementById("sclV").textContent = s.toFixed(2);
+  document.getElementById("skwV").textContent = sk;
+  const tmp = document.createElement("canvas"); tmp.width = SZ; tmp.height = SZ;
+  paintGray(tmp.id || "#__t", gray); // not needed, paint directly:
+  const tctx = tmp.getContext("2d");
+  const id = tctx.createImageData(SZ, SZ);
+  for (let i = 0; i < gray.length; i++) {
+    id.data[i*4] = gray[i]; id.data[i*4+1] = gray[i]; id.data[i*4+2] = gray[i]; id.data[i*4+3] = 255;
+  }
+  tctx.putImageData(id, 0, 0);
+  ctx.save();
+  ctx.translate(W/2, H/2);
+  ctx.rotate(r * Math.PI / 180);
+  ctx.scale(s, s);
+  ctx.transform(1, sk/100, 0, 1, 0, 0);
+  ctx.drawImage(tmp, -W/2, -H/2, W, H);
+  ctx.restore();
+  // border
+  ctx.strokeStyle = "rgba(255,212,0,0.4)"; ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, W-1, H-1);
+}
+
+function drawMask() {
+  const cv = document.getElementById("maskC");
+  const ctx = cv.getContext("2d");
+  const W = cv.width, H = cv.height;
+  const radius = +document.getElementById("maskR").value;
+  const feather = +document.getElementById("maskF").value;
+  document.getElementById("maskRV").textContent = radius;
+  document.getElementById("maskFV").textContent = feather;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x*SZ/W), sy = Math.floor(y*SZ/H);
+    const c = (sy*SZ+sx)*3;
+    const d = Math.hypot(x - W/2, y - H/2);
+    let m;
+    if (d < radius) m = 1;
+    else if (d < radius + feather) m = 1 - (d - radius) / feather;
+    else m = 0;
+    const i = (y*W+x)*4;
+    id.data[i] = color[c] * m; id.data[i+1] = color[c+1] * m; id.data[i+2] = color[c+2] * m; id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+  // overlay outline
+  ctx.strokeStyle = "rgba(255,212,0,0.5)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(W/2, H/2, radius * (W/SZ), 0, Math.PI*2); ctx.stroke();
+}
+
+function drawEdge() {
+  const method = document.getElementById("edgeMethod").value;
+  const out =
+    method === "SOBEL"     ? sobel(gray) :
+    method === "CANNY"     ? canny(gray, 60) :
+    method === "LAPLACIAN" ? laplacian(gray) : gray;
+  paintBinary(document.getElementById("edgeC"), out);
+}
+
+document.querySelectorAll("[data-src]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-src]").forEach(x => x.classList.remove("primary"));
+  b.classList.add("primary");
+  gen(b.dataset.src); renderAll();
+}));
+document.querySelectorAll("input[type=range], select").forEach(el => el.addEventListener("input", renderAll));
+
+gen("circuit");
+renderAll();
+</script>
+</body>
+</html>

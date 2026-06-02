@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Regularization · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="M07 Regularization">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M07 / FOUNDATIONS</div>
+      <h1>Regularization. <em>Stopping a model</em><br>from memorizing.</h1>
+      <p class="lede">A model powerful enough to fit your data is powerful enough to <em>memorize</em> it — noise and all — and then fail on anything new. Regularization is every trick that trades a little training accuracy for a lot of generalization. Watch overfitting happen, then watch it get tamed.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 07.01</b> · GENERALIZATION</span>
+        <span><b>METHODS</b> · 7</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="callout mb-4" style="max-width:840px;">
+        <b>The core tension →</b> <b style="color:var(--magenta)">Underfit</b> (too simple) = high bias, misses the pattern. <b style="color:var(--magenta)">Overfit</b> (too complex) = high variance, chases noise. The sweet spot minimizes error on <em>unseen</em> data. Regularization pulls an over-powered model back toward simplicity.
+      </div>
+
+      <!-- OVERFIT DEMO -->
+      <div class="section-title"><span class="num">// 01</span><h2>Watch it overfit · polynomial regression with ridge (L2)</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> FIT <span class="right small mono"><span style="color:#5a6271">— true</span> &nbsp; <span style="color:#ffd400">— model</span> &nbsp; <span style="color:#4dd0ff">● train</span> &nbsp; <span style="color:#ff3366">○ test</span></span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="fitPlot" width="720" height="380" style="width:100%;height:380px;background:#06080c;"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CONTROLS</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">DEGREE</span>
+                <input type="range" min="1" max="12" step="1" value="11" id="degree">
+                <span class="value" id="degreeV">11</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">λ (L2)</span>
+                <input type="range" min="-6" max="1" step="0.1" value="-6" id="lambda">
+                <span class="value mono" id="lambdaV">1e-6</span>
+              </div>
+              <div class="ctrl-row">
+                <span class="label">NOISE σ</span>
+                <input type="range" min="0" max="0.4" step="0.02" value="0.16" id="noise">
+                <span class="value" id="noiseV">0.16</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">SAMPLES</span>
+                <input type="range" min="8" max="40" step="2" value="16" id="npts">
+                <span class="value" id="nptsV">16</span>
+              </div>
+              <button class="btn mt-2" id="resample">⟳ RESAMPLE DATA</button>
+              <div class="mt-4" style="font-family:var(--font-mono);font-size:12px;line-height:1.9;">
+                <div>train error · <span style="color:#4dd0ff" id="trainErr">—</span></div>
+                <div>test error &nbsp;· <span style="color:#ff3366" id="testErr">—</span></div>
+                <div>‖w‖² &nbsp;&nbsp;&nbsp;&nbsp;· <span style="color:var(--accent)" id="wNorm">—</span></div>
+                <div>verdict · <span id="verdict">—</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout mt-4">
+        <b>Do this →</b> Set degree to <b>11</b> and λ to <b>1e-6</b>: the curve wiggles wildly through every point — tiny train error, huge test error. That's overfitting. Now drag λ up: the penalty <span class="mono">+λ‖w‖²</span> shrinks the weights, the curve smooths, and <span style="color:#ff3366">test error</span> drops even as <span style="color:#4dd0ff">train error</span> rises slightly. Too much λ and it underfits into a flat line.
+      </div>
+
+      <!-- L1 vs L2 -->
+      <div class="section-title"><span class="num">// 02</span><h2>L1 vs L2 · why one zeros weights and the other just shrinks them</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-7">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CONSTRAINT GEOMETRY <span class="right small mono muted">loss ellipses meet the budget region</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <div style="display:flex;gap:20px;justify-content:center;flex-wrap:wrap;">
+                <div><div class="small muted mb-2">L2 · ‖w‖² ≤ t &nbsp;(circle)</div><canvas id="l2geo" width="240" height="240" style="background:#06080c;border:1px solid var(--hairline);"></canvas></div>
+                <div><div class="small muted mb-2">L1 · ‖w‖₁ ≤ t &nbsp;(diamond)</div><canvas id="l1geo" width="240" height="240" style="background:#06080c;border:1px solid var(--hairline);"></canvas></div>
+              </div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;max-width:360px;margin:14px auto 0;">
+                <span class="label">BUDGET t</span>
+                <input type="range" min="0.2" max="1.6" step="0.05" value="0.8" id="budget">
+                <span class="value" id="budgetV">0.80</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="span-5">
+          <div class="panel">
+            <div class="panel-head"><span class="dot"></span> THE INTUITION</div>
+            <div class="panel-body small" style="line-height:1.7;">
+              <p style="margin-top:0;">The optimal weights sit at the center of the loss ellipses. Regularization forces the solution to live inside a budget region. Where the ellipse first <em>touches</em> that region is the regularized answer.</p>
+              <p><b style="color:var(--accent)">L2 (circle):</b> smooth boundary → the contact point usually has <em>both</em> weights small but non-zero. <b>Shrinks</b> everything toward zero. This is "weight decay" — the most common regularizer.</p>
+              <p style="margin-bottom:0;"><b style="color:var(--magenta)">L1 (diamond):</b> sharp corners on the axes → the ellipse tends to touch at a <em>corner</em>, where one weight is exactly <b>0</b>. L1 produces <b>sparse</b> models — automatic feature selection.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DROPOUT -->
+      <div class="section-title"><span class="num">// 03</span><h2>Dropout · randomly silence neurons during training</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> EACH STEP, A RANDOM SUBSET IS DROPPED <span class="right small mono muted" id="dropMode">TRAINING</span></div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="dropNet" width="700" height="300" style="width:100%;height:300px;background:#06080c;"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> CONTROLS</div>
+            <div class="panel-body">
+              <div class="ctrl-row">
+                <span class="label">DROP RATE p</span>
+                <input type="range" min="0" max="0.8" step="0.05" value="0.4" id="dropRate">
+                <span class="value" id="dropRateV">0.40</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">MODE</span>
+                <div class="toggle-group" id="dropTog"><button class="on" data-v="train">TRAIN</button><button data-v="infer">INFER</button></div>
+              </div>
+              <div class="small muted mt-4" style="line-height:1.6;">
+                <b>Training:</b> each forward pass drops neurons with probability p — the network can't rely on any single unit, so it learns redundant, robust features.<br><br>
+                <b>Inference:</b> all neurons active, outputs scaled by (1−p) so the expected signal matches. No randomness at test time.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBOX -->
+      <div class="section-title"><span class="num">// 04</span><h2>The full toolbox</h2><div class="line"></div></div>
+      <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;background:var(--panel);border:1px solid var(--hairline);">
+        <thead><tr style="border-bottom:1px solid var(--hairline);">
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">METHOD</th>
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">HOW</th>
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">EFFECT</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">L2 / weight decay</td><td style="padding:10px 14px;color:var(--text-2);">add λ‖w‖² to loss</td><td style="padding:10px 14px;color:var(--text-2);">shrinks all weights; smoother function</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">L1 / Lasso</td><td style="padding:10px 14px;color:var(--text-2);">add λ‖w‖₁ to loss</td><td style="padding:10px 14px;color:var(--text-2);">drives weights to exactly 0 → sparse</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">Dropout</td><td style="padding:10px 14px;color:var(--text-2);">randomly zero activations</td><td style="padding:10px 14px;color:var(--text-2);">prevents co-adaptation; ensemble effect</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">Batch / Layer Norm</td><td style="padding:10px 14px;color:var(--text-2);">normalize activations per batch/layer</td><td style="padding:10px 14px;color:var(--text-2);">stabilizes training; mild regularizer</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">Early stopping</td><td style="padding:10px 14px;color:var(--text-2);">halt when val loss stops improving</td><td style="padding:10px 14px;color:var(--text-2);">free; stops before memorization</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">Data augmentation</td><td style="padding:10px 14px;color:var(--text-2);">flip/crop/jitter inputs</td><td style="padding:10px 14px;color:var(--text-2);">more effective data → less overfit (see <a href='augmentation.html' style='color:var(--accent)'>Aug Lab</a>)</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:var(--accent);">Label smoothing</td><td style="padding:10px 14px;color:var(--text-2);">soften one-hot targets</td><td style="padding:10px 14px;color:var(--text-2);">less over-confidence; better calibration</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout mt-8">
+        <b>In practice →</b> you rarely pick one. A typical recipe stacks <b>weight decay + dropout + batch-norm + data augmentation + early stopping</b> together. Each attacks overfitting from a different angle; the combination is what makes big models generalize.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("regularization", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; FOUNDATIONS &nbsp;/&nbsp; <b style='color:var(--accent)'>REGULARIZATION</b>");</script>
+
+<script>
+/* ===== ridge polynomial regression ===== */
+let degree=11, lambda=1e-6, noiseSigma=0.16, nPts=16;
+let trainX=[], trainY=[], testX=[], testY=[];
+const trueF = x => Math.sin(x*Math.PI*1.5)*0.6 + 0.1*x;  // x in [-1,1]
+
+function genData() {
+  trainX=[]; trainY=[]; testX=[]; testY=[];
+  for (let i=0;i<nPts;i++){ const x=-1+2*i/(nPts-1); trainX.push(x); trainY.push(trueF(x)+(Math.random()*2-1)*noiseSigma); }
+  for (let i=0;i<40;i++){ const x=-1+2*Math.random(); testX.push(x); testY.push(trueF(x)+(Math.random()*2-1)*noiseSigma); }
+}
+// solve (XᵀX + λI) w = Xᵀy via gaussian elimination
+function solveRidge(d, lam) {
+  const n=trainX.length, m=d+1;
+  // design
+  const X=trainX.map(x=>{const row=[];let p=1;for(let k=0;k<m;k++){row.push(p);p*=x;}return row;});
+  // A = XᵀX + λI, b = Xᵀy
+  const A=Array.from({length:m},()=>Array(m).fill(0));
+  const b=Array(m).fill(0);
+  for(let i=0;i<m;i++){for(let j=0;j<m;j++){let s=0;for(let k=0;k<n;k++)s+=X[k][i]*X[k][j];A[i][j]=s+(i===j?lam:0);}let s2=0;for(let k=0;k<n;k++)s2+=X[k][i]*trainY[k];b[i]=s2;}
+  // gaussian elimination
+  for(let i=0;i<m;i++){
+    let piv=i; for(let r=i+1;r<m;r++) if(Math.abs(A[r][i])>Math.abs(A[piv][i])) piv=r;
+    [A[i],A[piv]]=[A[piv],A[i]]; [b[i],b[piv]]=[b[piv],b[i]];
+    const d0=A[i][i]||1e-9;
+    for(let r=0;r<m;r++){ if(r===i)continue; const f=A[r][i]/d0; for(let c=i;c<m;c++)A[r][c]-=f*A[i][c]; b[r]-=f*b[i]; }
+  }
+  const w=Array(m); for(let i=0;i<m;i++) w[i]=b[i]/(A[i][i]||1e-9);
+  return w;
+}
+function predict(w,x){let s=0,p=1;for(let k=0;k<w.length;k++){s+=w[k]*p;p*=x;}return s;}
+
+function renderFit() {
+  const w=solveRidge(degree,lambda);
+  const cv=document.getElementById("fitPlot"); const ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1; cv.width=cv.offsetWidth*dpr; cv.height=cv.offsetHeight*dpr; ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W=cv.offsetWidth,Hh=cv.offsetHeight;
+  ctx.clearRect(0,0,W,Hh);
+  const xa=-1.05,xb=1.05,ya=-1.2,yb=1.2;
+  const X2s=x=>(x-xa)/(xb-xa)*W, Y2s=y=>Hh-(y-ya)/(yb-ya)*Hh;
+  ctx.strokeStyle="rgba(255,255,255,0.05)"; for(let i=0;i<=8;i++){ctx.beginPath();ctx.moveTo(i/8*W,0);ctx.lineTo(i/8*W,Hh);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i/8*Hh);ctx.lineTo(W,i/8*Hh);ctx.stroke();}
+  ctx.strokeStyle="rgba(255,255,255,0.15)"; ctx.beginPath();ctx.moveTo(0,Y2s(0));ctx.lineTo(W,Y2s(0));ctx.stroke();
+  // true
+  ctx.strokeStyle="#5a6271"; ctx.lineWidth=2; ctx.beginPath();
+  for(let px=0;px<=W;px++){const x=xa+(px/W)*(xb-xa);px===0?ctx.moveTo(px,Y2s(trueF(x))):ctx.lineTo(px,Y2s(trueF(x)));}
+  ctx.stroke();
+  // model
+  ctx.strokeStyle="#ffd400"; ctx.lineWidth=2.5; ctx.beginPath();
+  for(let px=0;px<=W;px++){const x=xa+(px/W)*(xb-xa);let y=predict(w,x);y=Math.max(-3,Math.min(3,y));px===0?ctx.moveTo(px,Y2s(y)):ctx.lineTo(px,Y2s(y));}
+  ctx.stroke();
+  // points
+  ctx.fillStyle="#4dd0ff"; trainX.forEach((x,i)=>{ctx.beginPath();ctx.arc(X2s(x),Y2s(trainY[i]),4,0,7);ctx.fill();});
+  ctx.strokeStyle="#ff3366"; ctx.lineWidth=1.5; testX.forEach((x,i)=>{ctx.beginPath();ctx.arc(X2s(x),Y2s(testY[i]),3,0,7);ctx.stroke();});
+  // errors
+  let trE=0; trainX.forEach((x,i)=>trE+=Math.pow(predict(w,x)-trainY[i],2)); trE/=trainX.length;
+  let teE=0; testX.forEach((x,i)=>teE+=Math.pow(predict(w,x)-testY[i],2)); teE/=testX.length;
+  let wn=0; w.forEach(v=>wn+=v*v);
+  document.getElementById("trainErr").textContent=trE.toFixed(4);
+  document.getElementById("testErr").textContent=teE.toFixed(4);
+  document.getElementById("wNorm").textContent=wn.toFixed(1);
+  const vd=document.getElementById("verdict");
+  if (teE > trE*4 && teE>0.05) { vd.textContent="OVERFITTING"; vd.style.color="var(--fail)"; }
+  else if (trE > 0.06) { vd.textContent="UNDERFITTING"; vd.style.color="var(--warn)"; }
+  else { vd.textContent="GOOD FIT"; vd.style.color="var(--ok)"; }
+}
+
+document.getElementById("degree").addEventListener("input",e=>{degree=+e.target.value;document.getElementById("degreeV").textContent=degree;renderFit();});
+document.getElementById("lambda").addEventListener("input",e=>{lambda=Math.pow(10,+e.target.value);document.getElementById("lambdaV").textContent=lambda.toExponential(0);renderFit();});
+document.getElementById("noise").addEventListener("input",e=>{noiseSigma=+e.target.value;document.getElementById("noiseV").textContent=noiseSigma.toFixed(2);genData();renderFit();});
+document.getElementById("npts").addEventListener("input",e=>{nPts=+e.target.value;document.getElementById("nptsV").textContent=nPts;genData();renderFit();});
+document.getElementById("resample").addEventListener("click",()=>{genData();renderFit();});
+
+/* ===== L1/L2 geometry ===== */
+let budget=0.8;
+function drawGeo(id, type) {
+  const cv=document.getElementById(id); const ctx=cv.getContext("2d");
+  const W=cv.width,Hh=cv.height,cx=W/2,cy=Hh/2,sc=70;
+  ctx.clearRect(0,0,W,Hh);
+  // axes
+  ctx.strokeStyle="rgba(255,255,255,0.12)"; ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.moveTo(cx,0);ctx.lineTo(cx,Hh);ctx.stroke();
+  // loss ellipses centered at unconstrained solution (offset)
+  const solX=1.05, solY=0.75;
+  ctx.strokeStyle="rgba(255,212,0,0.3)"; ctx.lineWidth=1;
+  for(let r=0.3;r<2.5;r+=0.35){
+    ctx.beginPath();
+    for(let a=0;a<=Math.PI*2+0.1;a+=0.1){const ex=solX+r*Math.cos(a)*1.4,ey=solY+r*Math.sin(a)*0.8;ctx.lineTo(cx+ex*sc,cy-ey*sc);}
+    ctx.stroke();
+  }
+  // constraint region
+  ctx.fillStyle="rgba(77,208,255,0.08)"; ctx.strokeStyle=type==="l1"?"#ff3366":"#4dd0ff"; ctx.lineWidth=2;
+  ctx.beginPath();
+  if(type==="l2"){ctx.arc(cx,cy,budget*sc,0,Math.PI*2);}
+  else{ctx.moveTo(cx,cy-budget*sc);ctx.lineTo(cx+budget*sc,cy);ctx.lineTo(cx,cy+budget*sc);ctx.lineTo(cx-budget*sc,cy);ctx.closePath();}
+  ctx.fill(); ctx.stroke();
+  // solution = projection-ish of sol onto region (approx contact point)
+  let sx,sy;
+  if(type==="l2"){const n=Math.hypot(solX,solY);sx=solX/n*budget;sy=solY/n*budget;}
+  else{ // L1: snap to nearest corner if close to axis dominance
+    if(solX>solY){sx=budget;sy=Math.max(0,budget-Math.abs(solX-solY)*0.0); sy=0;}else{sy=budget;sx=0;}
+  }
+  ctx.fillStyle=type==="l1"?"#ff3366":"#4dd0ff"; ctx.beginPath();ctx.arc(cx+sx*sc,cy-sy*sc,5,0,7);ctx.fill();
+  ctx.strokeStyle="#06080c";ctx.lineWidth=1;ctx.stroke();
+  // unconstrained sol
+  ctx.fillStyle="#ffd400"; ctx.beginPath();ctx.arc(cx+solX*sc,cy-solY*sc,4,0,7);ctx.fill();
+  ctx.fillStyle="#5a6271"; ctx.font="9px JetBrains Mono"; ctx.fillText("w*",cx+solX*sc+6,cy-solY*sc);
+  if(type==="l1"&&(sx===0||sy===0)){ctx.fillStyle="#ff3366";ctx.fillText("sparse!",cx+sx*sc+6,cy-sy*sc+4);}
+}
+document.getElementById("budget").addEventListener("input",e=>{budget=+e.target.value;document.getElementById("budgetV").textContent=budget.toFixed(2);drawGeo("l2geo","l2");drawGeo("l1geo","l1");});
+
+/* ===== dropout net ===== */
+let dropRate=0.4, dropModeTrain=true, dropMask=null;
+const NET=[4,6,6,3];
+function buildMask(){ dropMask=NET.map((n,li)=> Array.from({length:n},()=> (li===0||li===NET.length-1)?true:(Math.random()>dropRate)) ); }
+buildMask();
+function drawDrop(){
+  const cv=document.getElementById("dropNet"); const ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1; cv.width=cv.offsetWidth*dpr; cv.height=cv.offsetHeight*dpr; ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W=cv.offsetWidth,Hh=cv.offsetHeight; ctx.clearRect(0,0,W,Hh);
+  const pos=NET.map((n,li)=>Array.from({length:n},(_,i)=>({x:60+li*(W-120)/(NET.length-1), y:Hh/2+(i-(n-1)/2)*40})));
+  // edges
+  for(let li=0;li<NET.length-1;li++)for(let i=0;i<NET[li];i++)for(let j=0;j<NET[li+1];j++){
+    const on = dropModeTrain ? (dropMask[li][i]&&dropMask[li+1][j]) : true;
+    ctx.strokeStyle = on? "rgba(255,212,0,0.18)":"rgba(255,255,255,0.03)";
+    ctx.lineWidth=1; ctx.beginPath();ctx.moveTo(pos[li][i].x,pos[li][i].y);ctx.lineTo(pos[li+1][j].x,pos[li+1][j].y);ctx.stroke();
+  }
+  // nodes
+  for(let li=0;li<NET.length;li++)for(let i=0;i<NET[li];i++){
+    const on = dropModeTrain ? dropMask[li][i] : true;
+    const scaled = (!dropModeTrain && li!==0 && li!==NET.length-1);
+    ctx.fillStyle = on ? (scaled?"rgba(255,212,0,0.6)":"#ffd400") : "#1a1f29";
+    ctx.beginPath();ctx.arc(pos[li][i].x,pos[li][i].y,11,0,7);ctx.fill();
+    ctx.strokeStyle = on?"#ffd400":"rgba(255,255,255,0.12)"; ctx.lineWidth=1.5; ctx.stroke();
+    if(!on){ctx.strokeStyle="#ff3366";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pos[li][i].x-5,pos[li][i].y-5);ctx.lineTo(pos[li][i].x+5,pos[li][i].y+5);ctx.moveTo(pos[li][i].x+5,pos[li][i].y-5);ctx.lineTo(pos[li][i].x-5,pos[li][i].y+5);ctx.stroke();}
+  }
+  ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono";
+  ["input","hidden","hidden","output"].forEach((t,li)=>ctx.fillText(t,pos[li][0].x-16,Hh-12));
+}
+document.getElementById("dropRate").addEventListener("input",e=>{dropRate=+e.target.value;document.getElementById("dropRateV").textContent=dropRate.toFixed(2);buildMask();drawDrop();});
+document.querySelectorAll("#dropTog button").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll("#dropTog button").forEach(x=>x.classList.remove("on"));b.classList.add("on");dropModeTrain=b.dataset.v==="train";document.getElementById("dropMode").textContent=dropModeTrain?"TRAINING":"INFERENCE (scaled)";drawDrop();}));
+setInterval(()=>{ if(dropModeTrain){buildMask();drawDrop();} }, 900);
+
+/* init */
+genData(); renderFit(); drawGeo("l2geo","l2"); drawGeo("l1geo","l1"); drawDrop();
+window.addEventListener("resize",()=>{renderFit();drawDrop();});
+</script>
+</body>
+</html>

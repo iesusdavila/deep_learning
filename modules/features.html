@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Feature Extraction · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="M03 Features">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M03 / FOUNDATIONS</div>
+      <h1>Features. <em>From edges</em><br>to eyes, in <em>five steps</em>.</h1>
+      <p class="lede">Every CNN climbs the same ladder: pixels → edges → textures → parts → objects. The features get smaller, deeper, and more abstract. The first layer sees brightness. The last sees "cat".</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 03.01</b> · FEATURE.HIERARCHY</span>
+        <span><b>LEVELS</b> · 5</span>
+        <span><b>ABSTRACTION</b> · <span style="color:var(--text)" id="absR">low → high</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- INPUT + HIERARCHY -->
+      <div class="grid-12">
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> INPUT IMAGE</div>
+            <div class="panel-body" style="text-align:center;">
+              <canvas id="inputC" width="200" height="200" style="background:#000;display:block;margin:0 auto;"></canvas>
+              <div class="mt-4 flex gap-2" style="justify-content:center;flex-wrap:wrap;">
+                <button class="btn" data-im="face">FACE</button>
+                <button class="btn" data-im="digit">DIGIT</button>
+                <button class="btn" data-im="texture">TEX</button>
+              </div>
+              <div class="small muted mt-4">Drag the slider →<br>walk up the abstraction ladder.</div>
+              <div class="ctrl-row mt-4" style="border-bottom:0;">
+                <span class="label">LAYER</span>
+                <input type="range" min="0" max="4" step="1" value="2" id="lvl">
+                <span class="value" id="lvlV">L2</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="span-9">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> FEATURE HIERARCHY <span class="right small mono muted">conceptual visualization</span></div>
+            <div class="panel-body">
+              <div id="hierarchy" style="display:grid;grid-template-columns:repeat(5,1fr);gap:18px;align-items:end;"></div>
+            </div>
+          </div>
+
+          <div class="grid-2 mt-6" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div class="panel">
+              <div class="panel-head"><span class="dot"></span> WHAT THIS LAYER "SEES" <span class="right" id="seesLabel">L2 · textures</span></div>
+              <div class="panel-body">
+                <div id="seesGrid" style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px;"></div>
+                <div class="small muted mt-4" id="seesDesc"></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> ACTIVATION ON YOUR IMAGE</div>
+              <div class="panel-body" style="text-align:center;">
+                <canvas id="actC" width="260" height="260" style="background:#000;display:block;margin:0 auto;image-rendering:pixelated;"></canvas>
+                <div class="small muted mt-4 mono" id="shapeLabel">28×28×16 · 12.5k activations</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BIG PICTURE -->
+      <div class="section-title">
+        <span class="num">// 02</span>
+        <h2>The full ladder · what each level captures</h2>
+        <div class="line"></div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12.5px;background:var(--panel);border:1px solid var(--hairline);">
+        <thead><tr style="border-bottom:1px solid var(--hairline);">
+          <th style="padding:14px 18px;text-align:left;color:var(--text-3);font-weight:400;letter-spacing:0.08em;font-size:10px;">LAYER</th>
+          <th style="padding:14px 18px;text-align:left;color:var(--text-3);font-weight:400;letter-spacing:0.08em;font-size:10px;">SHAPE</th>
+          <th style="padding:14px 18px;text-align:left;color:var(--text-3);font-weight:400;letter-spacing:0.08em;font-size:10px;">DETECTS</th>
+          <th style="padding:14px 18px;text-align:left;color:var(--text-3);font-weight:400;letter-spacing:0.08em;font-size:10px;">RECEPTIVE FIELD</th>
+          <th style="padding:14px 18px;text-align:left;color:var(--text-3);font-weight:400;letter-spacing:0.08em;font-size:10px;">EXAMPLE FEATURES</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--hairline);">
+            <td style="padding:14px 18px;color:var(--accent);">L0 · pixels</td>
+            <td style="padding:14px 18px;color:var(--text-2);">224×224×3</td>
+            <td style="padding:14px 18px;">raw RGB intensities</td>
+            <td style="padding:14px 18px;color:var(--text-2);">1×1</td>
+            <td style="padding:14px 18px;color:var(--text-2);">— (input)</td>
+          </tr>
+          <tr style="border-top:1px solid var(--hairline);">
+            <td style="padding:14px 18px;color:var(--accent);">L1 · edges</td>
+            <td style="padding:14px 18px;color:var(--text-2);">112×112×64</td>
+            <td style="padding:14px 18px;">oriented edges, brightness gradients</td>
+            <td style="padding:14px 18px;color:var(--text-2);">~7×7</td>
+            <td style="padding:14px 18px;color:var(--text-2);">horizontal, vertical, diagonal lines</td>
+          </tr>
+          <tr style="border-top:1px solid var(--hairline);">
+            <td style="padding:14px 18px;color:var(--accent);">L2 · textures</td>
+            <td style="padding:14px 18px;color:var(--text-2);">56×56×128</td>
+            <td style="padding:14px 18px;">corners, T-junctions, repeated patterns</td>
+            <td style="padding:14px 18px;color:var(--text-2);">~20×20</td>
+            <td style="padding:14px 18px;color:var(--text-2);">stripes, dots, fur, scales</td>
+          </tr>
+          <tr style="border-top:1px solid var(--hairline);">
+            <td style="padding:14px 18px;color:var(--accent);">L3 · parts</td>
+            <td style="padding:14px 18px;color:var(--text-2);">28×28×256</td>
+            <td style="padding:14px 18px;">eye-shapes, wheel-shapes, leaf-shapes</td>
+            <td style="padding:14px 18px;color:var(--text-2);">~60×60</td>
+            <td style="padding:14px 18px;color:var(--text-2);">eyes, noses, ears, wheels, beaks</td>
+          </tr>
+          <tr style="border-top:1px solid var(--hairline);">
+            <td style="padding:14px 18px;color:var(--accent);">L4 · objects</td>
+            <td style="padding:14px 18px;color:var(--text-2);">14×14×512</td>
+            <td style="padding:14px 18px;">whole-object templates</td>
+            <td style="padding:14px 18px;color:var(--text-2);">~150×150</td>
+            <td style="padding:14px 18px;color:var(--text-2);">cat-face, dog-face, car, building</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout mt-8">
+        <b>Key intuition →</b> Receptive field grows with depth. Layer 1 only sees a 7×7 patch, so it can only learn 7×7 things — edges. Layer 4 sees nearly the whole image, so it can learn whole objects. Spatial resolution drops as channel depth rises, packing more "meaning per pixel".
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("features", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; FOUNDATIONS &nbsp;/&nbsp; <b style='color:var(--accent)'>FEATURE EXTRACTION</b>");</script>
+
+<script>
+const LEVELS = [
+  { name: "L0 · pixels",   shape: "224×224×3",   desc: "Raw input. No processing yet — the model just sees RGB intensities." },
+  { name: "L1 · edges",    shape: "112×112×64",  desc: "First conv layer responds to oriented edges. Roughly Gabor-filter-like: stripes at various angles, brightness gradients." },
+  { name: "L2 · textures", shape: "56×56×128",   desc: "Combinations of edges become local texture: dots, fur, brick patterns, scales. Repeating motifs." },
+  { name: "L3 · parts",    shape: "28×28×256",   desc: "Sub-object templates emerge. An 'eye-shape' detector might fire for both eyes and headlights." },
+  { name: "L4 · objects",  shape: "14×14×512",   desc: "Whole-object templates. A unit lights up when there's a cat-face, a car, a building somewhere in the receptive field." },
+];
+
+function makeInput(kind) {
+  const cv = document.getElementById("inputC");
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#0a0a0a"; ctx.fillRect(0,0,200,200);
+  if (kind === "face") {
+    ctx.fillStyle = "#c8a070"; ctx.beginPath(); ctx.ellipse(100, 110, 60, 75, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.ellipse(80, 95, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(120, 95, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#202020"; ctx.beginPath(); ctx.arc(80, 95, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(120, 95, 4, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "#8a4040"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(100, 130, 18, 0.2, Math.PI - 0.2); ctx.stroke();
+  } else if (kind === "digit") {
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 140px Space Grotesk";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("7", 100, 105);
+  } else if (kind === "texture") {
+    for (let y = 0; y < 200; y += 8) for (let x = 0; x < 200; x += 8) {
+      const v = (Math.sin(x*0.1) + Math.cos(y*0.13))/2 + 0.5;
+      ctx.fillStyle = `hsl(40, ${50*v}%, ${30 + 40*v}%)`;
+      ctx.fillRect(x, y, 8, 8);
+    }
+  }
+}
+
+let lvl = 2;
+function renderHierarchy() {
+  const el = document.getElementById("hierarchy");
+  el.innerHTML = "";
+  LEVELS.forEach((L, i) => {
+    const size = 100 - i*14;
+    const blocks = 1 + i*2;
+    const card = document.createElement("div");
+    card.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:8px;${i === lvl ? "border-bottom:2px solid var(--accent);padding-bottom:8px;" : "padding-bottom:10px;"}`;
+    // stack of tensors (z-depth illusion)
+    const stack = document.createElement("div");
+    stack.style.cssText = `position:relative;width:${size+20}px;height:${size+20}px;`;
+    for (let k = 0; k < Math.min(5, 1 + i); k++) {
+      const layer = document.createElement("canvas");
+      layer.width = 64; layer.height = 64;
+      layer.style.cssText = `position:absolute;left:${k*3}px;top:${k*3}px;width:${size}px;height:${size}px;border:1px solid ${i === lvl ? 'var(--accent)' : 'var(--hairline-strong)'};image-rendering:pixelated;`;
+      drawFeatureTile(layer, i, k);
+      stack.appendChild(layer);
+    }
+    card.appendChild(stack);
+    const lbl = document.createElement("div");
+    lbl.style.cssText = `font-family:var(--font-mono);font-size:11px;color:${i === lvl ? 'var(--accent)' : 'var(--text-2)'};text-align:center;line-height:1.4;`;
+    lbl.innerHTML = `${L.name}<br><span style="color:var(--text-3);font-size:10px;">${L.shape}</span>`;
+    card.appendChild(lbl);
+    card.style.cursor = "pointer";
+    card.addEventListener("click", () => { lvl = i; document.getElementById("lvl").value = i; refresh(); });
+    el.appendChild(card);
+  });
+}
+
+function drawFeatureTile(canvas, layer, k) {
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const id = ctx.createImageData(W, H);
+  if (layer === 0) {
+    // pixels — just gradient
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y*W+x)*4;
+      id.data[i] = 80 + x; id.data[i+1] = 80 + y; id.data[i+2] = 100; id.data[i+3] = 255;
+    }
+  } else if (layer === 1) {
+    // edges — oriented sinusoids
+    const angle = k * Math.PI / 5;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const u = x*Math.cos(angle) + y*Math.sin(angle);
+      const v = Math.sin(u * 0.5) * 0.5 + 0.5;
+      const i = (y*W+x)*4;
+      id.data[i] = Math.floor(v*255); id.data[i+1] = Math.floor(v*212); id.data[i+2] = 0; id.data[i+3] = 255;
+    }
+  } else if (layer === 2) {
+    // textures
+    const seed = k*7 + 13;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const v = (Math.sin(x*0.4 + seed) * Math.cos(y*0.3 + seed) + 1) / 2;
+      const i = (y*W+x)*4;
+      const hot = v > 0.5;
+      id.data[i] = hot ? Math.floor(255*v) : Math.floor(40*v);
+      id.data[i+1] = hot ? Math.floor(212*v) : 0;
+      id.data[i+2] = hot ? 0 : Math.floor(100*v);
+      id.data[i+3] = 255;
+    }
+  } else if (layer === 3) {
+    // parts — circular blobs
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const cx = 32 + Math.sin(k*0.7)*14, cy = 32 + Math.cos(k*0.7)*14;
+      const d = Math.hypot(x-cx, y-cy);
+      const v = Math.exp(-d*d/120);
+      const i = (y*W+x)*4;
+      id.data[i] = Math.floor(255*v); id.data[i+1] = Math.floor(212*v); id.data[i+2] = 0; id.data[i+3] = 255;
+    }
+  } else {
+    // objects — sparse activation
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const v = Math.exp(-((x-32)**2 + (y-32)**2)/300) * (0.3 + 0.7 * Math.sin(k*1.3));
+      const i = (y*W+x)*4;
+      id.data[i] = Math.floor(255*Math.abs(v)); id.data[i+1] = 0; id.data[i+2] = Math.floor(102*Math.abs(v)); id.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function renderSees() {
+  const grid = document.getElementById("seesGrid");
+  grid.innerHTML = "";
+  const count = lvl === 0 ? 1 : 8;
+  for (let i = 0; i < count; i++) {
+    const cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 64;
+    cv.style.cssText = "width:100%;aspect-ratio:1;background:#000;border:1px solid var(--hairline);image-rendering:pixelated;";
+    drawFeatureTile(cv, lvl, i);
+    grid.appendChild(cv);
+  }
+  document.getElementById("seesLabel").textContent = LEVELS[lvl].name;
+  document.getElementById("seesDesc").textContent = LEVELS[lvl].desc;
+  document.getElementById("shapeLabel").textContent = `${LEVELS[lvl].shape} · activations`;
+  document.getElementById("absR").textContent = lvl === 0 ? "raw pixels" : lvl === 4 ? "object templates" : LEVELS[lvl].name.split("·")[1].trim();
+
+  // activation on input
+  const cv = document.getElementById("actC");
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#000"; ctx.fillRect(0,0,260,260);
+  // pull input as base
+  const inp = document.getElementById("inputC").getContext("2d").getImageData(0,0,200,200);
+  const W = cv.width, H = cv.height;
+  const id = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const sx = Math.floor(x * 200 / W), sy = Math.floor(y * 200 / H);
+    const sV = (inp.data[(sy*200+sx)*4] + inp.data[(sy*200+sx)*4+1] + inp.data[(sy*200+sx)*4+2]) / 3 / 255;
+    let r = 0, g = 0, b = 0;
+    if (lvl === 0) {
+      r = inp.data[(sy*200+sx)*4]; g = inp.data[(sy*200+sx)*4+1]; b = inp.data[(sy*200+sx)*4+2];
+    } else if (lvl === 1) {
+      // edge response
+      const sx1 = Math.min(199, sx+2), sx0 = Math.max(0, sx-2);
+      const dx = inp.data[(sy*200+sx1)*4] - inp.data[(sy*200+sx0)*4];
+      const v = Math.min(1, Math.abs(dx) / 100);
+      r = Math.floor(255*v); g = Math.floor(212*v); b = 0;
+    } else if (lvl === 2) {
+      // texture: high variance
+      const v = Math.abs(sV - 0.5) * 1.6;
+      r = Math.floor(255*v); g = Math.floor(212*v); b = 0;
+    } else if (lvl === 3) {
+      // parts: sparse blobs
+      const v = sV > 0.6 ? sV : 0;
+      r = Math.floor(255*v); g = 0; b = Math.floor(102*v);
+    } else {
+      // objects: very sparse blocky
+      const bx = Math.floor(x/40), by = Math.floor(y/40);
+      const v = ((bx + by) % 2 === 0) ? sV : 0;
+      r = Math.floor(255*v); g = 0; b = Math.floor(102*v);
+    }
+    const i = (y*W+x)*4;
+    id.data[i] = r; id.data[i+1] = g; id.data[i+2] = b; id.data[i+3] = 255;
+  }
+  ctx.putImageData(id, 0, 0);
+}
+
+function refresh() {
+  document.getElementById("lvlV").textContent = "L" + lvl;
+  renderHierarchy();
+  renderSees();
+}
+
+document.getElementById("lvl").addEventListener("input", e => { lvl = +e.target.value; refresh(); });
+document.querySelectorAll("[data-im]").forEach(b => b.addEventListener("click", () => { makeInput(b.dataset.im); refresh(); }));
+
+makeInput("face");
+refresh();
+</script>
+</body>
+</html>

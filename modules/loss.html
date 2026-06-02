@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Loss Functions · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .fn-chip { display:flex; align-items:center; gap:7px; padding:5px 10px; border:1px solid var(--hairline-strong); font-family:var(--font-mono); font-size:11px; cursor:pointer; color:var(--text-2); user-select:none; }
+  .fn-chip .sw { width:10px; height:10px; border-radius:2px; }
+  .fn-chip.off { opacity:0.4; }
+  .fn-toggle { display:flex; flex-wrap:wrap; gap:6px; }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M05 Loss">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M05 / FOUNDATIONS</div>
+      <h1>Loss functions. <em>The single number</em><br>training is trying to shrink.</h1>
+      <p class="lede">The loss measures how wrong a prediction is. Its <em>shape</em> decides what "wrong" means and what the model is punished for — and that quietly determines what your model learns. Pick the wrong loss and a perfectly good architecture trains toward the wrong thing.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 05.01</b> · LOSS.PLOT</span>
+        <span><b>REGRESSION</b> · 4 &nbsp; <b>CLASSIFICATION</b> · 4</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="callout mb-4" style="max-width:820px;">
+        <b>The whole loop in one line →</b> predict → measure loss → compute <span class="mono">∂loss/∂weights</span> → step weights downhill. Everything in the <a href="optimizers.html" style="color:var(--accent);">Optimizers</a> and <a href="mlp.html" style="color:var(--accent);">MLP</a> modules is in service of minimizing this number. The loss is the <em>only</em> thing the network actually optimizes.
+      </div>
+
+      <!-- REGRESSION -->
+      <div class="section-title"><span class="num">// 01</span><h2>Regression losses · "how far off is my number?"</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> LOSS vs RESIDUAL (e = ŷ − y) <span class="right small mono muted">drag to set the error</span></div>
+            <div class="panel-body">
+              <canvas id="regPlot" width="720" height="340" style="width:100%;height:340px;background:#06080c;cursor:ew-resize;"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> SHOW</div>
+            <div class="panel-body">
+              <div class="fn-toggle" id="regToggle"></div>
+              <div class="ctrl-row mt-4">
+                <span class="label">RESIDUAL e</span>
+                <input type="range" min="-4" max="4" step="0.05" value="2" id="resMark">
+                <span class="value" id="resMarkV">2.00</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">HUBER δ</span>
+                <input type="range" min="0.3" max="3" step="0.1" value="1" id="huberD">
+                <span class="value" id="huberDV">1.0</span>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11.5px;margin-top:10px;" id="regRead"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout mt-4">
+        <b>The outlier story →</b> Push the residual past ±3. <b style="color:#ffd400">MSE</b> (squared) explodes — one bad outlier dominates the whole gradient, so MSE chases outliers hard. <b style="color:#4dd0ff">MAE</b> (absolute) grows linearly — robust to outliers but has a non-smooth kink at 0. <b style="color:#2ee68b">Huber</b> is the compromise: quadratic near 0 (smooth), linear far out (robust). That δ slider is the switchover point.
+      </div>
+
+      <!-- CLASSIFICATION -->
+      <div class="section-title"><span class="num">// 02</span><h2>Classification losses · "how confident &amp; how right?"</h2><div class="line"></div></div>
+      <div class="grid-12">
+        <div class="span-8">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> LOSS vs PREDICTED PROBABILITY of the TRUE class <span class="right small mono muted">drag p</span></div>
+            <div class="panel-body">
+              <canvas id="clsPlot" width="720" height="340" style="width:100%;height:340px;background:#06080c;cursor:ew-resize;"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="span-4">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> SHOW</div>
+            <div class="panel-body">
+              <div class="fn-toggle" id="clsToggle"></div>
+              <div class="ctrl-row mt-4">
+                <span class="label">PROB p</span>
+                <input type="range" min="0.01" max="0.99" step="0.01" value="0.6" id="probMark">
+                <span class="value" id="probMarkV">0.60</span>
+              </div>
+              <div class="ctrl-row" style="border-bottom:0;">
+                <span class="label">FOCAL γ</span>
+                <input type="range" min="0" max="5" step="0.5" value="2" id="focalG">
+                <span class="value" id="focalGV">2.0</span>
+              </div>
+              <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11.5px;margin-top:10px;" id="clsRead"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout mt-4">
+        <b>Why cross-entropy dominates →</b> Drag p toward 0 (model confidently wrong about the true class). <b style="color:#ffd400">Cross-entropy</b> = −log(p) shoots to infinity — a brutal, unbounded punishment for confident mistakes, with a steep gradient that fixes them fast. <b style="color:#ff3366">Focal loss</b> adds a <span class="mono">(1−p)<sup>γ</sup></span> factor that <em>down-weights</em> easy, already-correct examples (high p) so training focuses on the hard ones — the trick that made dense object detection work.
+      </div>
+
+      <!-- TABLE -->
+      <div class="section-title"><span class="num">// 03</span><h2>Reference · which loss for which job</h2><div class="line"></div></div>
+      <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;background:var(--panel);border:1px solid var(--hairline);">
+        <thead><tr style="border-bottom:1px solid var(--hairline);">
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">LOSS</th>
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">TASK</th>
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">FORMULA</th>
+          <th style="padding:12px 14px;text-align:left;color:var(--text-3);font-weight:400;font-size:10px;">CHARACTER</th>
+        </tr></thead>
+        <tbody>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#ffd400;">MSE / L2</td><td style="padding:10px 14px;">regression</td><td style="padding:10px 14px;color:var(--text-2);">(ŷ−y)²</td><td style="padding:10px 14px;color:var(--text-2);">smooth, outlier-sensitive</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#4dd0ff;">MAE / L1</td><td style="padding:10px 14px;">regression</td><td style="padding:10px 14px;color:var(--text-2);">|ŷ−y|</td><td style="padding:10px 14px;color:var(--text-2);">robust, kink at 0</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#2ee68b;">Huber</td><td style="padding:10px 14px;">regression</td><td style="padding:10px 14px;color:var(--text-2);">quad near 0, linear far</td><td style="padding:10px 14px;color:var(--text-2);">best of both</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#b388ff;">Log-Cosh</td><td style="padding:10px 14px;">regression</td><td style="padding:10px 14px;color:var(--text-2);">ln(cosh(ŷ−y))</td><td style="padding:10px 14px;color:var(--text-2);">smooth Huber, twice-diff</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#ffd400;">Cross-Entropy</td><td style="padding:10px 14px;">multi-class</td><td style="padding:10px 14px;color:var(--text-2);">−Σ y·log(p)</td><td style="padding:10px 14px;color:var(--text-2);">pairs with softmax</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#4dd0ff;">Binary CE</td><td style="padding:10px 14px;">binary / multi-label</td><td style="padding:10px 14px;color:var(--text-2);">−[y log p + (1−y) log(1−p)]</td><td style="padding:10px 14px;color:var(--text-2);">pairs with sigmoid</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#2ee68b;">Hinge</td><td style="padding:10px 14px;">SVM / margins</td><td style="padding:10px 14px;color:var(--text-2);">max(0, 1 − y·ŷ)</td><td style="padding:10px 14px;color:var(--text-2);">margin-based, sparse</td></tr>
+          <tr style="border-top:1px solid var(--hairline);"><td style="padding:10px 14px;color:#ff3366;">Focal</td><td style="padding:10px 14px;">imbalanced detect</td><td style="padding:10px 14px;color:var(--text-2);">−(1−p)<sup>γ</sup> log(p)</td><td style="padding:10px 14px;color:var(--text-2);">ignores easy examples</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout mt-8">
+        <b>Mental model →</b> The loss is a <em>landscape</em> the optimizer descends. Its steepness where you're wrong = how strong the correction. MSE: gentle near the answer, violent at outliers. Cross-entropy: infinite cliff for confident errors. Choosing a loss is choosing what the model fears most.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("loss", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; FOUNDATIONS &nbsp;/&nbsp; <b style='color:var(--accent)'>LOSS FUNCTIONS</b>");</script>
+
+<script>
+/* ===== regression losses ===== */
+let huberD = 1;
+const REG = {
+  mse:   { name:"MSE", color:"#ffd400", f:e=>e*e },
+  mae:   { name:"MAE", color:"#4dd0ff", f:e=>Math.abs(e) },
+  huber: { name:"Huber", color:"#2ee68b", f:e=>Math.abs(e)<=huberD ? 0.5*e*e : huberD*(Math.abs(e)-0.5*huberD) },
+  logcosh:{ name:"Log-Cosh", color:"#b388ff", f:e=>Math.log(Math.cosh(e)) },
+};
+let regShown = { mse:true, mae:true, huber:true, logcosh:false };
+let resMark = 2;
+
+/* ===== classification losses ===== */
+let focalG = 2;
+const CLS = {
+  ce:    { name:"Cross-Entropy", color:"#ffd400", f:p=>-Math.log(p) },
+  focal: { name:"Focal", color:"#ff3366", f:p=>-Math.pow(1-p,focalG)*Math.log(p) },
+  bce:   { name:"Binary CE", color:"#4dd0ff", f:p=>-Math.log(p) },        // for true class identical to CE; shown for context
+  brier: { name:"Brier (MSE)", color:"#2ee68b", f:p=>(1-p)*(1-p) },
+};
+let clsShown = { ce:true, focal:true, bce:false, brier:true };
+let probMark = 0.6;
+
+function plotLoss(canvasId, dict, shown, xmin, xmax, ymax, markX, markColor) {
+  const cv = document.getElementById(canvasId);
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio||1; cv.width=cv.offsetWidth*dpr; cv.height=cv.offsetHeight*dpr;
+  ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
+  const W=cv.offsetWidth, Hh=cv.offsetHeight;
+  ctx.clearRect(0,0,W,Hh);
+  const X2s=x=>(x-xmin)/(xmax-xmin)*W, Y2s=y=>Hh-10-(y/ymax)*(Hh-24);
+  ctx.strokeStyle="rgba(255,255,255,0.05)";
+  for(let i=0;i<=8;i++){const x=X2s(xmin+(xmax-xmin)*i/8);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,Hh);ctx.stroke();}
+  for(let i=0;i<=5;i++){const y=Y2s(ymax*i/5);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // x axis at 0
+  ctx.strokeStyle="rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.moveTo(0,Y2s(0));ctx.lineTo(W,Y2s(0));ctx.stroke();
+  if (xmin<0){ctx.beginPath();ctx.moveTo(X2s(0),0);ctx.lineTo(X2s(0),Hh);ctx.stroke();}
+  // marker
+  ctx.strokeStyle=markColor; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(X2s(markX),0);ctx.lineTo(X2s(markX),Hh);ctx.stroke();ctx.setLineDash([]);
+  Object.keys(dict).forEach(k=>{
+    if(!shown[k])return; const a=dict[k];
+    ctx.strokeStyle=a.color; ctx.lineWidth=2; ctx.beginPath();
+    for(let px=0;px<=W;px++){const x=xmin+(px/W)*(xmax-xmin);let y=a.f(x);y=Math.min(ymax*1.1,y);px===0?ctx.moveTo(px,Y2s(y)):ctx.lineTo(px,Y2s(y));}
+    ctx.stroke();
+    const my=Math.min(ymax*1.1,a.f(markX));
+    ctx.fillStyle=a.color; ctx.beginPath(); ctx.arc(X2s(markX),Y2s(my),3.5,0,7); ctx.fill();
+  });
+  ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono";
+  ctx.fillText(xmin.toString(), 4, Hh-2); ctx.fillText(xmax.toString(), W-20, Hh-2);
+}
+function readTable(id, dict, shown, markX) {
+  const tb=document.getElementById(id); tb.innerHTML="";
+  const head=document.createElement("tr"); head.style.color="var(--text-3)";
+  head.innerHTML=`<td style="padding:5px 8px;font-size:10px;">LOSS</td><td style="padding:5px 8px;text-align:right;font-size:10px;">VALUE</td>`;
+  tb.appendChild(head);
+  Object.keys(dict).forEach(k=>{ if(!shown[k])return; const a=dict[k];
+    const tr=document.createElement("tr"); tr.style.borderTop="1px solid var(--hairline)";
+    tr.innerHTML=`<td style="padding:6px 8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${a.color};margin-right:6px;"></span>${a.name}</td><td style="padding:6px 8px;text-align:right;color:var(--accent);">${a.f(markX).toFixed(3)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+function renderReg(){ plotLoss("regPlot",REG,regShown,-4,4,9,resMark,"rgba(255,212,0,0.6)"); readTable("regRead",REG,regShown,resMark); }
+function renderCls(){ plotLoss("clsPlot",CLS,clsShown,0.01,1,5,probMark,"rgba(255,51,102,0.6)"); readTable("clsRead",CLS,clsShown,probMark); }
+
+/* toggles */
+function buildToggles(containerId, dict, shown, rerender) {
+  const c = document.getElementById(containerId);
+  Object.keys(dict).forEach(k=>{
+    const a=dict[k]; const chip=document.createElement("div");
+    chip.className="fn-chip"+(shown[k]?"":" off");
+    chip.innerHTML=`<span class="sw" style="background:${a.color}"></span>${a.name}`;
+    chip.addEventListener("click",()=>{shown[k]=!shown[k];chip.classList.toggle("off",!shown[k]);rerender();});
+    c.appendChild(chip);
+  });
+}
+buildToggles("regToggle",REG,regShown,renderReg);
+buildToggles("clsToggle",CLS,clsShown,renderCls);
+
+document.getElementById("resMark").addEventListener("input",e=>{resMark=+e.target.value;document.getElementById("resMarkV").textContent=resMark.toFixed(2);renderReg();});
+document.getElementById("huberD").addEventListener("input",e=>{huberD=+e.target.value;document.getElementById("huberDV").textContent=huberD.toFixed(1);renderReg();});
+document.getElementById("probMark").addEventListener("input",e=>{probMark=+e.target.value;document.getElementById("probMarkV").textContent=probMark.toFixed(2);renderCls();});
+document.getElementById("focalG").addEventListener("input",e=>{focalG=+e.target.value;document.getElementById("focalGV").textContent=focalG.toFixed(1);renderCls();});
+
+function dragX(canvasId, xmin, xmax, setter){
+  const cv=document.getElementById(canvasId); let d=false;
+  const mv=e=>{const r=cv.getBoundingClientRect();let x=xmin+((e.clientX-r.left)/r.width)*(xmax-xmin);x=Math.max(xmin,Math.min(xmax,x));setter(x);};
+  cv.addEventListener("mousedown",e=>{d=true;mv(e);});
+  window.addEventListener("mousemove",e=>{if(d)mv(e);});
+  window.addEventListener("mouseup",()=>d=false);
+}
+dragX("regPlot",-4,4,x=>{resMark=x;document.getElementById("resMark").value=x;document.getElementById("resMarkV").textContent=x.toFixed(2);renderReg();});
+dragX("clsPlot",0.01,0.99,x=>{probMark=x;document.getElementById("probMark").value=x;document.getElementById("probMarkV").textContent=x.toFixed(2);renderCls();});
+
+renderReg(); renderCls();
+window.addEventListener("resize",()=>{renderReg();renderCls();});
+</script>
+</body>
+</html>

@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cortex.Lab — Computer Vision, made visible</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="shell" data-screen-label="Landing">
+  <main>
+    <!-- HERO -->
+    <section class="hero">
+      <canvas id="heroBg" class="hero-grid"></canvas>
+      <div class="eyebrow">CORTEX.LAB / INTERACTIVE CV LABORATORY / V0.4</div>
+      <h1>Computer vision,<br><em>made visible.</em><br><span class="strike">read about it.</span> <em>play with it.</em></h1>
+      <p class="sub">A live laboratory for convolutions, kernels, embeddings &amp; neural architectures. Every concept is a slider, every tensor a shape you can rotate, every gradient an animation. No tutorials. No videos. Just experiments.</p>
+
+      <div class="hero-cta">
+        <a href="modules/convolution.html" class="btn primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">START WITH CONVOLUTIONS <span style="font-family:var(--font-mono)">→</span></a>
+        <a href="modules/cnn.html" class="btn" style="text-decoration:none;">OPEN CNN BUILDER</a>
+        <span class="chip accent">20 MODULES · 85+ EXPERIMENTS</span>
+      </div>
+
+      <div class="hint-row">
+        <span><b>↹</b> traverse modules</span>
+        <span><b>⌘ K</b> command palette</span>
+        <span><b>Space</b> play/pause sims</span>
+        <span><b>R</b> randomize</span>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <div class="stats-strip">
+      <div class="stat"><div class="v">20</div><div class="k">Modules</div></div>
+      <div class="stat"><div class="v">85</div><div class="k">Live Experiments</div></div>
+      <div class="stat"><div class="v">∞</div><div class="k">Tensor States</div></div>
+      <div class="stat"><div class="v">0</div><div class="k">Server Calls</div></div>
+    </div>
+
+    <!-- MODULES GRID -->
+    <div class="content" style="padding-top: 56px;">
+      <div class="section-title">
+        <span class="num">// 01</span>
+        <h2>The Modules</h2>
+        <div class="line"></div>
+        <span class="mono muted" style="font-size:11px;">20 / 20 ONLINE</span>
+      </div>
+      <p class="small" style="max-width: 700px; margin-bottom: 28px;">
+        Each module is a self-contained interactive notebook. Drag, scrub, click anything. Every visualization runs locally in your browser — real math, no canned animations.
+      </p>
+    </div>
+
+    <div class="modules-grid">
+      <a class="module-card" href="modules/matrix.html">
+        <div class="id">M01 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="matrix" width="220" height="120"></canvas></div>
+        <h3>Matrix &amp; Tensor Playground</h3>
+        <p>Rotate, multiply, broadcast. Watch shapes cascade through dimension flips and dot products in real time.</p>
+      </a>
+      <a class="module-card" href="modules/convolution.html">
+        <div class="id">M02 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="conv" width="220" height="120"></canvas></div>
+        <h3>Convolution Kernels</h3>
+        <p>Scrub a 3×3 kernel across procedural imagery. Sobel, Laplacian, custom — see every multiply &amp; accumulate.</p>
+      </a>
+      <a class="module-card" href="modules/features.html">
+        <div class="id">M03 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="features" width="220" height="120"></canvas></div>
+        <h3>Feature Extraction</h3>
+        <p>From edges to eyes. Walk the hierarchy of representations from layer 1 through layer 18.</p>
+      </a>
+      <a class="module-card" href="modules/activations.html">
+        <div class="id">M04 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="actfn" width="220" height="120"></canvas></div>
+        <h3>Activation Functions</h3>
+        <p>The non-linear bend that makes deep nets work. Plot f(x) and its gradient; compare ReLU, GELU, sigmoid &amp; more.</p>
+      </a>
+      <a class="module-card" href="modules/loss.html">
+        <div class="id">M05 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="lossfn" width="220" height="120"></canvas></div>
+        <h3>Loss Functions</h3>
+        <p>The number training shrinks. MSE vs MAE vs Huber; cross-entropy vs focal. Drag the error, watch the penalty.</p>
+      </a>
+      <a class="module-card" href="modules/optimizers.html">
+        <div class="id">M06 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="optim" width="220" height="120"></canvas></div>
+        <h3>Optimizers</h3>
+        <p>SGD, Momentum, Adam &amp; friends race down bowls, ravines and Rosenbrock. See who reaches the bottom first.</p>
+      </a>
+      <a class="module-card" href="modules/regularization.html">
+        <div class="id">M07 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="reg" width="220" height="120"></canvas></div>
+        <h3>Regularization</h3>
+        <p>Stop a model memorizing. Live overfitting demo, L1 vs L2 geometry, dropout, and the full toolbox.</p>
+      </a>
+      <a class="module-card" href="modules/mlp.html">
+        <div class="id">M08 · FOUNDATIONS</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="mlp" width="220" height="120"></canvas></div>
+        <h3>The MLP · step-by-step</h3>
+        <p>One full training step with every number shown: forward, loss, backprop chain rule, weight update. The atom of deep learning.</p>
+      </a>
+
+      <a class="module-card" href="modules/cnn.html">
+        <div class="id">M09 · ARCHITECTURES</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="cnn" width="220" height="120"></canvas></div>
+        <h3>CNN Architecture Builder</h3>
+        <p>Drag layers in, watch tensor shapes propagate. Compare your design against ResNet, VGG, MobileNet.</p>
+      </a>
+      <a class="module-card" href="modules/attention.html">
+        <div class="id">M10 · ARCHITECTURES</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="attention" width="220" height="120"></canvas></div>
+        <h3>Attention &amp; Transformers</h3>
+        <p>From RNNs to Q/K/V to ViT. The full block anatomy, then hover patches to watch them attend.</p>
+      </a>
+      <a class="module-card" href="modules/clip.html">
+        <div class="id">M11 · ARCHITECTURES</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="clip" width="220" height="120"></canvas></div>
+        <h3>CLIP &amp; OpenCLIP</h3>
+        <p>Two encoders, one space. Watch the contrastive matrix train, then classify zero-shot over six classes.</p>
+      </a>
+      <a class="module-card" href="modules/dino.html">
+        <div class="id">M12 · ARCHITECTURES</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="dino" width="220" height="120"></canvas></div>
+        <h3>DINO · Self-Supervised</h3>
+        <p>No labels. Student matches teacher across crops — and attention maps segment objects on their own.</p>
+      </a>
+      <a class="module-card" href="modules/gan.html">
+        <div class="id">M13 · ARCHITECTURES</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="gan" width="220" height="120"></canvas></div>
+        <h3>GANs</h3>
+        <p>A forger and a detective in a duel. A real 2D adversarial game — train it live, watch mode collapse.</p>
+      </a>
+
+      <a class="module-card" href="modules/opencv.html">
+        <div class="id">M14 · LABORATORY</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="opencv" width="220" height="120"></canvas></div>
+        <h3>OpenCV Lab</h3>
+        <p>Threshold, contour, morph. The classical CV toolbox as one big set of sliders.</p>
+      </a>
+      <a class="module-card" href="modules/augmentation.html">
+        <div class="id">M15 · LABORATORY</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="aug" width="220" height="120"></canvas></div>
+        <h3>Augmentation Lab</h3>
+        <p>Flips, jitters, cutout, mixup. Build an augmentation pipeline and preview a batch.</p>
+      </a>
+      <a class="module-card" href="modules/training.html">
+        <div class="id">M16 · LABORATORY</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="train" width="220" height="120"></canvas></div>
+        <h3>Training Simulator</h3>
+        <p>Watch loss curves descend, gradients propagate, decision boundaries form. Tune LR, optimizer, epochs.</p>
+      </a>
+      <a class="module-card" href="modules/training-mlp.html">
+        <div class="id">M17 · LABORATORY</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="mlptrain" width="220" height="120"></canvas></div>
+        <h3>Training MLP</h3>
+        <p>Watch a network learn neuron by neuron — live weights, activations, gradient pulses and a forming boundary.</p>
+      </a>
+      <a class="module-card" href="modules/representation.html">
+        <div class="id">M18 · LABORATORY</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="repr" width="220" height="120"></canvas></div>
+        <h3>Representation Learning</h3>
+        <p>The engine under CLIP &amp; DINO, with normal backbones. Contrastive, triplet, emergent clusters.</p>
+      </a>
+      <a class="module-card" href="modules/embeddings.html">
+        <div class="id">M19 · LABORATORY</div>
+        <span class="arrow">↗</span>
+        <div class="vis"><canvas data-vis="embed" width="220" height="120"></canvas></div>
+        <h3>Embeddings &amp; Latents</h3>
+        <p>Fly through 3D latent space. Cluster, interpolate, find nearest neighbors. PCA / t-SNE / UMAP.</p>
+      </a>
+
+      <a class="module-card" href="modules/sandbox.html" style="grid-column: span 12; border-right: 0;">
+        <div class="id">M20 · LABORATORY · FLAGSHIP</div>
+        <span class="arrow">↗</span>
+        <div class="vis" style="min-height: 180px;"><canvas data-vis="sandbox" width="640" height="160"></canvas></div>
+        <h3>AI Sandbox &nbsp;·&nbsp; node editor</h3>
+        <p style="max-width: 620px;">Chain everything. A visual node graph where the output of any module becomes the input of any other. Build pipelines that ingest an image, push it through edges → features → attention → embedding, and visualize every intermediate tensor.</p>
+      </a>
+    </div>
+
+    <!-- TWO PANEL: how it works / what's inside -->
+    <div class="content">
+      <div class="grid-12 mt-8">
+        <div class="span-7">
+          <div class="section-title">
+            <span class="num">// 02</span>
+            <h2>How it works</h2>
+            <div class="line"></div>
+          </div>
+          <div class="grid-2" style="grid-template-columns: 60px 1fr; gap: 0;">
+            <div style="font-family:var(--font-mono);color:var(--accent);font-size:12px;padding:14px 0;border-bottom:1px solid var(--hairline);">01</div>
+            <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
+              <div style="font-size:15px;margin-bottom:4px;">Pick a concept.</div>
+              <div class="small">Pick any module. Each one stands alone — start anywhere.</div>
+            </div>
+            <div style="font-family:var(--font-mono);color:var(--accent);font-size:12px;padding:14px 0;border-bottom:1px solid var(--hairline);">02</div>
+            <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
+              <div style="font-size:15px;margin-bottom:4px;">Manipulate the inputs.</div>
+              <div class="small">Drag sliders, modify matrices, add layers, swap activations. The visualization recomputes on every frame.</div>
+            </div>
+            <div style="font-family:var(--font-mono);color:var(--accent);font-size:12px;padding:14px 0;border-bottom:1px solid var(--hairline);">03</div>
+            <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
+              <div style="font-size:15px;margin-bottom:4px;">Read the math.</div>
+              <div class="small">Equations live alongside every visualization. Toggle them on/off, hover for derivations.</div>
+            </div>
+            <div style="font-family:var(--font-mono);color:var(--accent);font-size:12px;padding:14px 0;">04</div>
+            <div style="padding:14px 0;">
+              <div style="font-size:15px;margin-bottom:4px;">Chain it together in the Sandbox.</div>
+              <div class="small">When you're ready, drop modules onto a canvas and connect them. Build a real CV pipeline.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="span-5">
+          <div class="section-title">
+            <span class="num">// 03</span>
+            <h2>What's inside</h2>
+            <div class="line"></div>
+          </div>
+          <div class="panel ticks" style="position:relative;">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> SYSTEM MANIFEST
+              <span class="right">20 / 20 MODULES</span>
+            </div>
+            <div class="panel-body" style="padding:0;">
+              <table style="width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:11.5px;">
+                <tbody>
+                  <tr><td style="padding:9px 14px;color:var(--text-3);">FOUNDATIONS</td><td style="padding:9px 14px;text-align:right;color:var(--accent);">8 modules</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ matrix.ops</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">12 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ convolution.live</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">8 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ feature.hierarchy</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">5 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ activation.plot</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">9 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ loss.plot</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">8 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ optimizer.race</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">6 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ regularization</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">7 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ mlp.trace</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">8 steps</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px;color:var(--text-3);">ARCHITECTURES</td><td style="padding:9px 14px;text-align:right;color:var(--accent);">5 modules</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ cnn.builder</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">9 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ attention.map</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">6 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ clip.contrastive</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">5 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ dino.selfsup</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">5 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ gan.adversarial</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">6 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px;color:var(--text-3);">LABORATORY</td><td style="padding:9px 14px;text-align:right;color:var(--accent);">7 modules</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ opencv.toolbox</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">11 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ augmentation.pipe</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">7 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ training.sim</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">6 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ training.mlp</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">live</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ representation.lab</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">4 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ latent.space</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">5 demos</td></tr>
+                  <tr style="border-top:1px solid var(--hairline);"><td style="padding:9px 14px 9px 28px;">↳ sandbox.graph</td><td style="padding:9px 14px;text-align:right;color:var(--text-2);">∞ demos</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="callout mt-6">
+            <b>For students, not consumers.</b> No paywalls, no accounts, no telemetry. Every page is one HTML file. View source, fork it, break it.
+          </div>
+        </div>
+      </div>
+
+      <!-- footer band -->
+      <div class="mt-8" style="border-top:1px solid var(--hairline);padding-top:32px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px;">
+        <div>
+          <div class="mono" style="font-size:11px;color:var(--text-3);letter-spacing:0.15em;">CORTEX.LAB · CV INTERACTIVE</div>
+          <div class="mono" style="font-size:11px;color:var(--text-3);margin-top:4px;">BUILD 0.4.1 · COMMIT a3f721c · 16 MAY 2026</div>
+        </div>
+        <div class="badge-row">
+          <span class="chip">WEBGL 2.0</span>
+          <span class="chip">CANVAS 2D</span>
+          <span class="chip">TYPED ARRAYS</span>
+          <span class="chip">OFFSCREEN.CANVAS</span>
+          <span class="chip accent">100% LOCAL</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/nav.js"></script>
+<script>
+  CORTEX.mount("home", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; HOME", false);
+</script>
+
+<script>
+/* --- Procedural mini-visualizations for the module cards --- */
+(function () {
+  const visualizers = {
+    matrix(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // two matrices and an output arrow
+      const cellSize = 14, gap = 2;
+      const A = 4, B = 4;
+      for (let i = 0; i < A; i++) for (let j = 0; j < B; j++) {
+        const x = 10 + j*(cellSize+gap), y = 14 + i*(cellSize+gap);
+        const v = (Math.sin(i*1.3+j*0.7+t*0.0015)+1)/2;
+        ctx.fillStyle = `rgba(255,212,0,${v*0.55})`;
+        ctx.fillRect(x, y, cellSize, cellSize);
+        ctx.strokeStyle = "rgba(255,255,255,0.08)"; ctx.lineWidth = 1;
+        ctx.strokeRect(x+0.5, y+0.5, cellSize-1, cellSize-1);
+      }
+      ctx.fillStyle = "#5a6271"; ctx.font = "10px JetBrains Mono"; ctx.fillText("×", 86, 70);
+      for (let i = 0; i < A; i++) for (let j = 0; j < B; j++) {
+        const x = 96 + j*(cellSize+gap), y = 14 + i*(cellSize+gap);
+        const v = (Math.cos(i*0.9+j*1.1-t*0.0012)+1)/2;
+        ctx.fillStyle = `rgba(255,51,102,${v*0.55})`;
+        ctx.fillRect(x, y, cellSize, cellSize);
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.strokeRect(x+0.5, y+0.5, cellSize-1, cellSize-1);
+      }
+      ctx.strokeStyle = "#ffd400"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(172, 60); ctx.lineTo(190, 60); ctx.lineTo(186, 56); ctx.moveTo(190, 60); ctx.lineTo(186, 64); ctx.stroke();
+      // output
+      for (let i = 0; i < A; i++) for (let j = 0; j < B; j++) {
+        const x = 196 + j*(cellSize+gap)*0.5, y = 32 + i*(cellSize+gap)*0.5;
+        ctx.fillStyle = `rgba(255,212,0,${0.15 + 0.5*Math.abs(Math.sin(i+j+t*0.002))})`;
+        ctx.fillRect(x, y, 6, 6);
+      }
+    },
+
+    conv(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // image grid
+      const cs = 10;
+      for (let i = 0; i < 10; i++) for (let j = 0; j < 18; j++) {
+        const v = (Math.sin(i*0.7+j*0.4)+Math.cos(i*0.3-j*0.5)+2)/4;
+        ctx.fillStyle = `rgba(${50+v*180},${50+v*180},${60+v*180},0.85)`;
+        ctx.fillRect(10+j*cs, 10+i*cs, cs-1, cs-1);
+      }
+      // kernel
+      const phase = (t*0.001) % 1;
+      const kx = 10 + Math.floor(phase*15)*cs;
+      const ky = 10 + Math.floor((Math.sin(t*0.0006)+1)/2 * 7)*cs;
+      ctx.strokeStyle = "#ffd400"; ctx.lineWidth = 1.5;
+      ctx.strokeRect(kx-0.5, ky-0.5, cs*3+1, cs*3+1);
+      ctx.fillStyle = "rgba(255,212,0,0.18)"; ctx.fillRect(kx, ky, cs*3, cs*3);
+      ctx.strokeStyle = "rgba(255,212,0,0.25)";
+      ctx.beginPath();
+      ctx.moveTo(kx+cs*3, ky+cs*1.5); ctx.lineTo(200, ky+cs*1.5);
+      ctx.stroke();
+      ctx.fillStyle = "#ff3366"; ctx.fillRect(200, ky+cs*1.5-4, 8, 8);
+    },
+
+    features(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // 4 layer stack with increasing abstraction
+      for (let layer = 0; layer < 4; layer++) {
+        const x0 = 10 + layer*52;
+        const size = 36 - layer*4;
+        const cells = 4 + layer;
+        const cs = size / cells;
+        const ox = x0, oy = 40;
+        for (let i = 0; i < cells; i++) for (let j = 0; j < cells; j++) {
+          const seed = (i + j*2 + layer*3 + Math.floor(t*0.001));
+          const v = ((Math.sin(seed)*0.5+0.5));
+          const color = layer === 0 ? `rgba(255,255,255,${v*0.6})`
+                      : layer === 1 ? `rgba(255,212,0,${v*0.6})`
+                      : layer === 2 ? `rgba(255,153,68,${v*0.6})`
+                                    : `rgba(255,51,102,${v*0.6})`;
+          ctx.fillStyle = color;
+          ctx.fillRect(ox+j*cs, oy+i*cs, cs-0.5, cs-0.5);
+        }
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.strokeRect(ox-0.5, oy-0.5, size+1, size+1);
+        if (layer < 3) {
+          ctx.strokeStyle = "rgba(255,212,0,0.25)"; ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(ox+size+2, oy+size/2); ctx.lineTo(ox+50, oy+size/2); ctx.stroke();
+        }
+      }
+    },
+
+    cnn(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      const layers = [{x: 10, w: 28, h: 80, c: "#ffffff"}, {x: 48, w: 22, h: 64, c: "#ffd400"},
+                      {x: 80, w: 18, h: 50, c: "#ffd400"}, {x: 108, w: 14, h: 38, c: "#ff9d3a"},
+                      {x: 132, w: 10, h: 28, c: "#ff3366"}, {x: 156, w: 8, h: 60, c: "#ff3366"}];
+      layers.forEach((l, i) => {
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillRect(l.x+2, h/2 - l.h/2+2, l.w, l.h);
+        ctx.fillStyle = l.c;
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(l.x, h/2 - l.h/2, l.w, l.h);
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.strokeRect(l.x-0.5, h/2 - l.h/2-0.5, l.w+1, l.h+1);
+      });
+      // signal pulse
+      const pulse = ((t*0.0005) % 1);
+      const px = 10 + pulse * 165;
+      ctx.fillStyle = "rgba(255,212,0,0.9)";
+      ctx.beginPath(); ctx.arc(px, h/2, 2.5, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "rgba(255,212,0,0.3)";
+      ctx.beginPath(); ctx.arc(px, h/2, 6, 0, Math.PI*2); ctx.fill();
+      // tensor labels
+      ctx.font = "9px JetBrains Mono"; ctx.fillStyle = "#5a6271";
+      ctx.fillText("32²×3", 8, 110); ctx.fillText("16²×32", 60, 110); ctx.fillText("8²×64", 100, 110); ctx.fillText("4²×128", 130, 110);
+    },
+
+    attention(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // 16 patches in a 4x4 grid
+      const cs = 16; const ox = 10, oy = 14;
+      const focus = Math.floor((t*0.001) % 16);
+      const fx = focus % 4, fy = Math.floor(focus/4);
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        const idx = i*4 + j;
+        const dist = Math.hypot(i-fy, j-fx);
+        const weight = Math.exp(-dist*0.8);
+        ctx.fillStyle = idx === focus ? "#ffd400" : `rgba(255,212,0,${weight*0.4})`;
+        ctx.fillRect(ox+j*(cs+2), oy+i*(cs+2), cs, cs);
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.strokeRect(ox+j*(cs+2)-0.5, oy+i*(cs+2)-0.5, cs+1, cs+1);
+      }
+      // arrows
+      const fxc = ox + fx*(cs+2) + cs/2, fyc = oy + fy*(cs+2) + cs/2;
+      ctx.strokeStyle = "rgba(255,51,102,0.4)"; ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+        if (i === fy && j === fx) continue;
+        const dist = Math.hypot(i-fy, j-fx);
+        const weight = Math.exp(-dist*0.8);
+        if (weight > 0.15) {
+          ctx.globalAlpha = weight;
+          ctx.beginPath();
+          ctx.moveTo(fxc, fyc);
+          ctx.lineTo(ox+j*(cs+2)+cs/2, oy+i*(cs+2)+cs/2);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      // patch embedding line
+      ctx.strokeStyle = "rgba(255,212,0,0.25)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(95, 60); ctx.lineTo(140, 60); ctx.stroke();
+      ctx.font = "9px JetBrains Mono"; ctx.fillStyle = "#ffd400"; ctx.fillText("→ Q·Kᵀ", 145, 64);
+    },
+
+    embed(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w/2, cy = h/2;
+      const N = 60;
+      const rot = t * 0.0004;
+      const clusters = [
+        { cx: -22, cy: 0, cz: 0, color: "#ffd400" },
+        { cx: 22, cy: 8, cz: -10, color: "#ff3366" },
+        { cx: 4, cy: -15, cz: 12, color: "#4dd0ff" },
+      ];
+      const points = [];
+      clusters.forEach((cl, ci) => {
+        for (let i = 0; i < N/3; i++) {
+          const r = Math.random() * 10 + 2;
+          const a = Math.random() * Math.PI * 2;
+          const b = Math.random() * Math.PI - Math.PI/2;
+          const x0 = cl.cx + r*Math.cos(a)*Math.cos(b);
+          const y0 = cl.cy + r*Math.sin(b);
+          const z0 = cl.cz + r*Math.sin(a)*Math.cos(b);
+          points.push({x: x0, y: y0, z: z0, c: cl.color, ci});
+        }
+      });
+      // store deterministically using seed - rebuild only once
+      if (!visualizers.embed._pts) visualizers.embed._pts = points;
+      const pts = visualizers.embed._pts;
+      const projected = pts.map(p => {
+        const x = p.x * Math.cos(rot) - p.z * Math.sin(rot);
+        const z = p.x * Math.sin(rot) + p.z * Math.cos(rot);
+        const scale = 80 / (80 + z);
+        return { sx: cx + x * scale * 2, sy: cy + p.y * scale * 2, sz: z, c: p.c, scale };
+      });
+      projected.sort((a,b) => a.sz - b.sz);
+      for (const p of projected) {
+        ctx.globalAlpha = 0.4 + 0.5 * p.scale;
+        ctx.fillStyle = p.c;
+        ctx.beginPath(); ctx.arc(p.sx, p.sy, 1.8 * p.scale, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    },
+
+    opencv(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // left: gray gradient image, right: edge map
+      const W = 90, H = 90, ox = 10, oy = 12;
+      const img = ctx.createImageData(W, H);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const v = Math.floor(120 + 90*Math.sin(x*0.1 + y*0.08 + t*0.001) + 30*Math.cos(x*0.05));
+        const i = (y*W+x)*4;
+        img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 255;
+      }
+      ctx.putImageData(img, ox, oy);
+      // edge
+      const edge = ctx.createImageData(W, H);
+      for (let y = 1; y < H-1; y++) for (let x = 1; x < W-1; x++) {
+        const cx = (img.data[(y*W+x+1)*4] - img.data[(y*W+x-1)*4]);
+        const cy = (img.data[((y+1)*W+x)*4] - img.data[((y-1)*W+x)*4]);
+        const m = Math.min(255, Math.abs(cx)+Math.abs(cy));
+        const i = (y*W+x)*4;
+        edge.data[i] = m > 30 ? 255 : 0;
+        edge.data[i+1] = m > 30 ? 212 : 0;
+        edge.data[i+2] = m > 30 ? 0 : 0;
+        edge.data[i+3] = 255;
+      }
+      ctx.putImageData(edge, ox+W+12, oy);
+      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.strokeRect(ox-0.5, oy-0.5, W+1, H+1);
+      ctx.strokeRect(ox+W+12-0.5, oy-0.5, W+1, H+1);
+    },
+
+    aug(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // 4 variations of a procedural "image"
+      function drawTile(ox, oy, size, transform) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(ox, oy, size, size); ctx.clip();
+        ctx.translate(ox+size/2, oy+size/2);
+        if (transform.rot) ctx.rotate(transform.rot);
+        if (transform.flip) ctx.scale(-1, 1);
+        ctx.translate(-size/2, -size/2);
+        // draw a colored "image"
+        ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, size, size);
+        ctx.fillStyle = "#ffd400"; ctx.beginPath(); ctx.arc(size*0.35, size*0.45, size*0.18, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#ff3366"; ctx.fillRect(size*0.55, size*0.3, size*0.2, size*0.4);
+        ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.fillRect(size*0.15, size*0.7, size*0.6, 3);
+        if (transform.noise) {
+          for (let i = 0; i < 60; i++) {
+            ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.4})`;
+            ctx.fillRect(Math.random()*size, Math.random()*size, 1, 1);
+          }
+        }
+        if (transform.cut) {
+          ctx.fillStyle = "#06080c";
+          ctx.fillRect(size*0.4, size*0.4, size*0.3, size*0.3);
+        }
+        ctx.restore();
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.strokeRect(ox-0.5, oy-0.5, size+1, size+1);
+      }
+      const s = 44, gap = 8;
+      drawTile(10, 14, s, {});
+      drawTile(10+s+gap, 14, s, {rot: Math.sin(t*0.001)*0.4});
+      drawTile(10+(s+gap)*2, 14, s, {flip: true});
+      drawTile(10+(s+gap)*3, 14, s, {noise: true});
+      drawTile(10, 14+s+gap, s, {cut: true});
+      drawTile(10+s+gap, 14+s+gap, s, {rot: -0.3, noise: true});
+      drawTile(10+(s+gap)*2, 14+s+gap, s, {flip: true, cut: true});
+      drawTile(10+(s+gap)*3, 14+s+gap, s, {rot: 0.2});
+    },
+
+    train(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // loss curve
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.beginPath(); ctx.moveTo(10, h-20); ctx.lineTo(210, h-20); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(10, 14); ctx.lineTo(10, h-20); ctx.stroke();
+      // grid
+      for (let i = 1; i < 5; i++) {
+        ctx.beginPath(); ctx.moveTo(10, 14 + i*18); ctx.lineTo(210, 14 + i*18); ctx.stroke();
+      }
+      // training loss
+      ctx.strokeStyle = "#ffd400"; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const max = 100;
+      const phase = Math.min(1, (t*0.0005) % 1.4);
+      for (let i = 0; i <= max*phase; i++) {
+        const xv = 10 + (i/max)*200;
+        const yv = h-20 - (1.5/(1+i*0.05) + 0.3*Math.sin(i*0.3)) * 18;
+        if (i === 0) ctx.moveTo(xv, yv); else ctx.lineTo(xv, yv);
+      }
+      ctx.stroke();
+      // val loss
+      ctx.strokeStyle = "#ff3366"; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let i = 0; i <= max*phase; i++) {
+        const xv = 10 + (i/max)*200;
+        const yv = h-20 - (1.7/(1+i*0.04) + 0.4*Math.sin(i*0.2+1) + 0.2) * 18;
+        if (i === 0) ctx.moveTo(xv, yv); else ctx.lineTo(xv, yv);
+      }
+      ctx.stroke();
+    },
+
+    actfn(ctx, w, h, t) {
+      ctx.clearRect(0,0,w,h);
+      const xmin=-5,xmax=5; const Y0=h*0.62;
+      ctx.strokeStyle="rgba(255,255,255,0.08)"; ctx.beginPath();ctx.moveTo(0,Y0);ctx.lineTo(w,Y0);ctx.stroke();ctx.beginPath();ctx.moveTo(w/2,10);ctx.lineTo(w/2,h-10);ctx.stroke();
+      const ph=(Math.sin(t*0.0006)+1)/2;
+      const fns=[x=>Math.max(0,x), x=>Math.tanh(x), x=>x/(1+Math.exp(-x))];
+      const cols=["#2ee68b","#4dd0ff","#ffd400"];
+      fns.forEach((f,i)=>{ctx.strokeStyle=cols[i];ctx.globalAlpha=i===Math.floor(ph*3)?1:0.4;ctx.lineWidth=2;ctx.beginPath();
+        for(let px=0;px<=w;px++){const x=xmin+(px/w)*(xmax-xmin);const y=Y0-f(x)*22;px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);}ctx.stroke();});
+      ctx.globalAlpha=1;
+    },
+
+    lossfn(ctx, w, h, t) {
+      ctx.clearRect(0,0,w,h);
+      ctx.strokeStyle="rgba(255,255,255,0.08)"; ctx.beginPath();ctx.moveTo(0,h-18);ctx.lineTo(w,h-18);ctx.stroke();ctx.beginPath();ctx.moveTo(w/2,8);ctx.lineTo(w/2,h-18);ctx.stroke();
+      // MSE parabola + MAE V
+      ctx.strokeStyle="#ffd400";ctx.lineWidth=2;ctx.beginPath();
+      for(let px=0;px<=w;px++){const e=(px/w-0.5)*6;const y=h-18-e*e*5;px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);}ctx.stroke();
+      ctx.strokeStyle="#4dd0ff";ctx.lineWidth=2;ctx.beginPath();
+      for(let px=0;px<=w;px++){const e=(px/w-0.5)*6;const y=h-18-Math.abs(e)*15;px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);}ctx.stroke();
+      // marker
+      const mx=w/2+Math.sin(t*0.001)*w*0.32; const e=(mx/w-0.5)*6;
+      ctx.fillStyle="#ff3366";ctx.beginPath();ctx.arc(mx,h-18-e*e*5,3,0,7);ctx.fill();
+    },
+
+    optim(ctx, w, h, t) {
+      ctx.clearRect(0,0,w,h);
+      // contour bowl
+      const cx=w/2,cy=h/2;
+      for(let r=58;r>0;r-=8){ctx.strokeStyle=`rgba(255,212,0,${0.04+0.02*(r/58)})`;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(cx,cy,r*1.4,r*0.8,0,0,7);ctx.stroke();}
+      // two trajectories spiraling in
+      const cols=["#ffd400","#ff3366"];
+      cols.forEach((c,k)=>{ctx.strokeStyle=c;ctx.lineWidth=1.6;ctx.beginPath();
+        for(let s=0;s<=60;s++){const tt=s/60;const ang=tt*7+k*2+t*0.0004;const rad=(1-tt)*55*(k?1:0.8);const x=cx+Math.cos(ang)*rad*1.4;const y=cy+Math.sin(ang)*rad*0.8;s===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.stroke();});
+      ctx.fillStyle="#2ee68b";ctx.beginPath();ctx.arc(cx,cy,3,0,7);ctx.fill();
+    },
+
+    reg(ctx, w, h, t) {
+      ctx.clearRect(0,0,w,h);
+      // noisy points + wiggly (overfit) vs smooth curve cycling
+      const ph=(Math.sin(t*0.0006)+1)/2;
+      ctx.strokeStyle="rgba(255,255,255,0.08)";ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();
+      // true smooth
+      ctx.strokeStyle="#5a6271";ctx.lineWidth=1.5;ctx.beginPath();
+      for(let px=0;px<=w;px++){const x=(px/w)*6-3;const y=h/2-Math.sin(x*1.3)*22;px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);}ctx.stroke();
+      // model: wiggly when ph low, smooth when ph high
+      ctx.strokeStyle="#ffd400";ctx.lineWidth=2;ctx.beginPath();
+      for(let px=0;px<=w;px++){const x=(px/w)*6-3;const wig=(1-ph)*Math.sin(x*7)*14;const y=h/2-Math.sin(x*1.3)*22-wig;px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);}ctx.stroke();
+      ctx.fillStyle="#4dd0ff";for(let i=0;i<8;i++){const x=(i/7)*w;const tx=(x/w)*6-3;ctx.beginPath();ctx.arc(x,h/2-Math.sin(tx*1.3)*22+((i*37)%14-7),2.5,0,7);ctx.fill();}
+    },
+
+    mlp(ctx, w, h, t) {
+      ctx.clearRect(0,0,w,h);
+      const layers=[2,3,3,1]; const L=layers.length;
+      const pos=layers.map((n,l)=>Array.from({length:n},(_,i)=>({x:30+l*(w-60)/(L-1),y:h/2+(i-(n-1)/2)*26})));
+      for(let l=0;l<L-1;l++)for(let i=0;i<layers[l];i++)for(let j=0;j<layers[l+1];j++){
+        ctx.strokeStyle="rgba(255,212,0,0.18)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pos[l][i].x,pos[l][i].y);ctx.lineTo(pos[l+1][j].x,pos[l+1][j].y);ctx.stroke();}
+      // forward pulse
+      const ph=(t*0.0006)%1; const lx=30+ph*(w-60);
+      for(let l=0;l<L;l++)for(let i=0;i<layers[l];i++){const on=Math.abs(pos[l][i].x-lx)<30;ctx.fillStyle=on?"#ffd400":"#0d1117";ctx.beginPath();ctx.arc(pos[l][i].x,pos[l][i].y,7,0,7);ctx.fill();ctx.strokeStyle="rgba(255,255,255,0.2)";ctx.lineWidth=1;ctx.stroke();}
+    },
+
+    mlptrain(ctx, w, h, t) {
+      ctx.clearRect(0,0,w,h);
+      const layers=[2,4,3,1]; const L=layers.length;
+      const pos=layers.map((n,l)=>Array.from({length:n},(_,i)=>({x:28+l*(w-56)/(L-1),y:h/2+(i-(n-1)/2)*22})));
+      for(let l=0;l<L-1;l++)for(let i=0;i<layers[l];i++)for(let j=0;j<layers[l+1];j++){
+        const wv=Math.sin(i*3+j*7+l*5+t*0.0008);
+        ctx.strokeStyle=wv>=0?`rgba(255,212,0,${0.15+Math.abs(wv)*0.5})`:`rgba(255,51,102,${0.15+Math.abs(wv)*0.5})`;
+        ctx.lineWidth=0.4+Math.abs(wv)*2;ctx.beginPath();ctx.moveTo(pos[l][i].x,pos[l][i].y);ctx.lineTo(pos[l+1][j].x,pos[l+1][j].y);ctx.stroke();}
+      for(let l=0;l<L;l++)for(let i=0;i<layers[l];i++){const a=(Math.sin(i*2+l*3+t*0.001)+1)/2;ctx.fillStyle=`rgba(255,212,0,${a*0.8})`;ctx.beginPath();ctx.arc(pos[l][i].x,pos[l][i].y,6,0,7);ctx.fill();ctx.strokeStyle="rgba(255,255,255,0.2)";ctx.lineWidth=1;ctx.stroke();}
+    },
+
+    clip(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      const N = 5, gap = 20, oy = 18;
+      // left image column, right text column
+      for (let i = 0; i < N; i++) {
+        ctx.fillStyle = "#4dd0ff"; ctx.fillRect(28, oy + i*gap, 12, 12);
+        ctx.fillStyle = "#ff3366"; ctx.fillRect(w-40, oy + i*gap, 12, 12);
+      }
+      // links: diagonal bright, others faint
+      const phase = (Math.sin(t*0.001)+1)/2;
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const a = i === j ? 0.3 + 0.6*phase : 0.04;
+        ctx.strokeStyle = i === j ? `rgba(255,212,0,${a})` : `rgba(255,255,255,${a})`;
+        ctx.lineWidth = i === j ? 1.5 : 1;
+        ctx.beginPath(); ctx.moveTo(40, oy + i*gap + 6); ctx.lineTo(w-40, oy + j*gap + 6); ctx.stroke();
+      }
+      ctx.font = "9px JetBrains Mono"; ctx.fillStyle = "#5a6271";
+      ctx.fillText("image", 24, oy + N*gap + 4); ctx.fillText("text", w-44, oy + N*gap + 4);
+    },
+
+    dino(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      // emergent attention blob on left
+      const cx = 60, cy = h/2;
+      for (let r = 40; r > 0; r -= 3) {
+        const v = Math.exp(-Math.pow(r/26, 2)) * (0.6 + 0.4*Math.sin(t*0.002));
+        ctx.fillStyle = `rgba(255,212,0,${v*0.35})`;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+      }
+      // student / teacher nodes
+      const sx = 150, tx = 190;
+      ctx.fillStyle = "#ffd400"; ctx.beginPath(); ctx.arc(sx, cy-14, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(tx, cy+14, 8, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1;
+      ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(sx, cy-14); ctx.lineTo(tx, cy+14); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font = "9px JetBrains Mono"; ctx.fillStyle = "#ffd400"; ctx.fillText("student", sx-16, cy-26);
+      ctx.fillStyle = "#ff3366"; ctx.fillText("teacher (EMA)", tx-20, cy+34);
+    },
+
+    gan(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      const cx = w/2, cy = h/2, R = 38;
+      // real ring (cyan)
+      ctx.fillStyle = "#4dd0ff";
+      for (let i = 0; i < 40; i++) {
+        const a = i/40*Math.PI*2;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(a)*R, cy + Math.sin(a)*R, 1.6, 0, Math.PI*2); ctx.fill();
+      }
+      // fake points converging toward ring as t cycles
+      const conv = (Math.sin(t*0.0007) + 1)/2;
+      ctx.fillStyle = "#ff3366";
+      for (let i = 0; i < 40; i++) {
+        const a = i/40*Math.PI*2 + 0.3;
+        const r0 = R * (0.2 + 0.8*conv) + (1-conv)*Math.sin(i*3)*20;
+        ctx.beginPath(); ctx.arc(cx + Math.cos(a)*r0, cy + Math.sin(a)*r0, 1.6, 0, Math.PI*2); ctx.fill();
+      }
+    },
+
+    repr(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      const conv = (Math.sin(t*0.0008) + 1)/2;
+      const cols = ["#ffd400", "#ff3366", "#4dd0ff"];
+      const centers = [[70, 40], [150, 70], [110, 90]];
+      for (let c = 0; c < 3; c++) {
+        ctx.fillStyle = cols[c];
+        for (let i = 0; i < 14; i++) {
+          const rx = 30 + ((i*53 + c*97) % 160), ry = 16 + ((i*31 + c*71) % 90);
+          const x = rx*(1-conv) + (centers[c][0] + Math.cos(i)*10)*conv;
+          const y = ry*(1-conv) + (centers[c][1] + Math.sin(i)*10)*conv;
+          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI*2); ctx.fill();
+        }
+      }
+    },
+
+    sandbox(ctx, w, h, t) {
+      ctx.clearRect(0, 0, w, h);
+      const nodes = [
+        { x: 30,  y: 80, w: 60, h: 36, label: "INPUT",  c: "#ffd400" },
+        { x: 130, y: 30, w: 64, h: 36, label: "CONV2D", c: "#fff" },
+        { x: 130, y: 130,w: 64, h: 36, label: "BLUR",   c: "#fff" },
+        { x: 240, y: 80, w: 64, h: 36, label: "POOL",   c: "#fff" },
+        { x: 350, y: 30, w: 64, h: 36, label: "RELU",   c: "#fff" },
+        { x: 350, y: 130,w: 70, h: 36, label: "ATTEND", c: "#fff" },
+        { x: 470, y: 80, w: 78, h: 36, label: "EMBED",  c: "#fff" },
+        { x: 580, y: 80, w: 50, h: 36, label: "OUT",    c: "#ff3366" },
+      ];
+      const edges = [[0,1],[0,2],[1,3],[2,3],[3,4],[3,5],[4,6],[5,6],[6,7]];
+      // edges
+      edges.forEach(([a,b]) => {
+        const A = nodes[a], B = nodes[b];
+        ctx.strokeStyle = "rgba(255,212,0,0.25)"; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(A.x+A.w, A.y+A.h/2);
+        const mx = (A.x+A.w + B.x)/2;
+        ctx.bezierCurveTo(mx, A.y+A.h/2, mx, B.y+B.h/2, B.x, B.y+B.h/2);
+        ctx.stroke();
+      });
+      // signal pulses along an edge
+      const phase = (t*0.0008) % 1;
+      edges.forEach(([a,b], i) => {
+        if (((t*0.0006) % edges.length | 0) !== i) return;
+        const A = nodes[a], B = nodes[b];
+        const mx = (A.x+A.w + B.x)/2;
+        // approximate bezier point
+        const tt = phase;
+        const x = (1-tt)*(1-tt)*(1-tt)*(A.x+A.w) + 3*(1-tt)*(1-tt)*tt*mx + 3*(1-tt)*tt*tt*mx + tt*tt*tt*B.x;
+        const y = (1-tt)*(1-tt)*(1-tt)*(A.y+A.h/2) + 3*(1-tt)*(1-tt)*tt*(A.y+A.h/2) + 3*(1-tt)*tt*tt*(B.y+B.h/2) + tt*tt*tt*(B.y+B.h/2);
+        ctx.fillStyle = "#ffd400"; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+      });
+      // nodes
+      nodes.forEach(n => {
+        ctx.fillStyle = "#0d1117";
+        ctx.fillRect(n.x, n.y, n.w, n.h);
+        ctx.strokeStyle = n.c; ctx.lineWidth = 1;
+        ctx.strokeRect(n.x-0.5, n.y-0.5, n.w+1, n.h+1);
+        // port dots
+        ctx.fillStyle = n.c;
+        ctx.beginPath(); ctx.arc(n.x, n.y+n.h/2, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(n.x+n.w, n.y+n.h/2, 2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = n.c === "#fff" ? "#f5f5f5" : n.c;
+        ctx.font = "10px JetBrains Mono"; ctx.textAlign = "center";
+        ctx.fillText(n.label, n.x + n.w/2, n.y + n.h/2 + 3.5);
+      });
+      ctx.textAlign = "left";
+    },
+  };
+
+  // hero background — animated dot pulse
+  const heroBg = document.getElementById("heroBg");
+  if (heroBg) {
+    function fit() { heroBg.width = heroBg.offsetWidth; heroBg.height = heroBg.offsetHeight; }
+    fit(); window.addEventListener("resize", fit);
+    const hctx = heroBg.getContext("2d");
+    const pts = [];
+    function regen() { pts.length = 0; const N = 80; for (let i = 0; i < N; i++) pts.push({x: Math.random(), y: Math.random(), r: Math.random()*0.5+0.5, p: Math.random()*Math.PI*2}); }
+    regen();
+    function tick(t) {
+      hctx.clearRect(0,0,heroBg.width,heroBg.height);
+      const W = heroBg.width, H = heroBg.height;
+      // connection lines
+      pts.forEach((p, i) => {
+        const x = p.x*W, y = p.y*H + Math.sin(t*0.0005 + p.p)*8;
+        pts.forEach((q, j) => {
+          if (j <= i) return;
+          const qx = q.x*W, qy = q.y*H + Math.sin(t*0.0005 + q.p)*8;
+          const d = Math.hypot(x-qx, y-qy);
+          if (d < 90) {
+            hctx.strokeStyle = `rgba(255,212,0,${(1-d/90)*0.06})`;
+            hctx.lineWidth = 1;
+            hctx.beginPath(); hctx.moveTo(x,y); hctx.lineTo(qx,qy); hctx.stroke();
+          }
+        });
+      });
+      pts.forEach(p => {
+        const x = p.x*W, y = p.y*H + Math.sin(t*0.0005 + p.p)*8;
+        const a = 0.15 + 0.15*Math.sin(t*0.001 + p.p);
+        hctx.fillStyle = `rgba(255,212,0,${a})`;
+        hctx.beginPath(); hctx.arc(x, y, p.r*1.5, 0, Math.PI*2); hctx.fill();
+      });
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // module card animations
+  document.querySelectorAll("canvas[data-vis]").forEach(c => {
+    const ctx = c.getContext("2d");
+    const fn = visualizers[c.dataset.vis];
+    if (!fn) return;
+    // hi-DPI
+    const dpr = window.devicePixelRatio || 1;
+    const w = c.width, h = c.height;
+    c.width = w * dpr; c.height = h * dpr; c.style.width = w + "px"; c.style.height = h + "px";
+    ctx.scale(dpr, dpr);
+    function loop(t) { fn(ctx, w, h, t); requestAnimationFrame(loop); }
+    requestAnimationFrame(loop);
+  });
+})();
+</script>
+</body>
+</html>

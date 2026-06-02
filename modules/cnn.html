@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CNN Architecture Builder · Cortex.Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/styles.css">
+<style>
+  .palette { display: flex; flex-direction: column; gap: 6px; }
+  .palette-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    background: var(--raised); border: 1px solid var(--hairline);
+    cursor: grab;
+    font-family: var(--font-mono); font-size: 12px;
+    transition: all .15s;
+  }
+  .palette-item:hover { border-color: var(--accent); color: var(--accent); transform: translateX(2px); }
+  .palette-item .swatch { width: 12px; height: 12px; border: 1px solid currentColor; }
+  .palette-item .meta { margin-left: auto; color: var(--text-3); font-size: 10px; }
+  .palette-item:active { cursor: grabbing; }
+  .palette-item.drag-over { outline: 1px dashed var(--accent); }
+
+  /* layer card in network */
+  .layer-card {
+    flex: 1; min-width: 130px;
+    background: var(--raised); border: 1px solid var(--hairline);
+    padding: 10px 12px;
+    position: relative;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .layer-card.selected { border-color: var(--accent); background: rgba(255,212,0,0.04); }
+  .layer-card .type { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--text-3); }
+  .layer-card .name { font-size: 13px; font-weight: 500; margin: 2px 0 6px; }
+  .layer-card .shape-out { font-family: var(--font-mono); font-size: 10.5px; color: var(--accent); }
+  .layer-card .params { font-family: var(--font-mono); font-size: 10px; color: var(--text-2); margin-top: 4px; }
+  .layer-card .del { position: absolute; top: 6px; right: 8px; font-family: var(--font-mono); font-size: 10px; color: var(--text-3); cursor: pointer; }
+  .layer-card .del:hover { color: var(--magenta); }
+  .layer-card.conv .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .layer-card.pool .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--cyan); }
+  .layer-card.norm .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #ff9d3a; }
+  .layer-card.act  .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #f5f5f5; }
+  .layer-card.dense .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--magenta); }
+  .layer-card.drop .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: #888; }
+
+  .net-row { display: flex; gap: 8px; align-items: stretch; flex-wrap: nowrap; overflow-x: auto; padding: 6px 0; min-height: 130px; }
+  .arrow-conn { display: grid; place-items: center; color: var(--accent); font-family: var(--font-mono); font-size: 16px; flex: 0 0 auto; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--hairline-strong);
+    background: rgba(0,0,0,0.2);
+    padding: 22px;
+    text-align: center;
+    color: var(--text-3);
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em;
+  }
+  .drop-zone.over { border-color: var(--accent); color: var(--accent); background: rgba(255,212,0,0.04); }
+
+  /* feature map preview */
+  .fmap-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .fmap-row .fm {
+    width: 64px; height: 64px;
+    background: var(--void); border: 1px solid var(--hairline);
+  }
+  .fmap-row .fm canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+
+  /* presets */
+  .preset-btn {
+    padding: 8px 14px; border: 1px solid var(--hairline-strong); background: var(--raised);
+    cursor: pointer; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; color: var(--text-2);
+    transition: all .15s;
+  }
+  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="shell" data-screen-label="M04 CNN Builder">
+  <main>
+    <header class="module-head">
+      <div class="eyebrow">M09 / ARCHITECTURES · FLAGSHIP</div>
+      <h1>Build a CNN. <em>Layer by layer.</em></h1>
+      <p class="lede">Drop layers onto the canvas, watch tensor shapes propagate forward in real time. Activations animate down the pipeline. Compare your stack against ResNet-18, VGG-11, MobileNet, your own arbitrary mess.</p>
+      <div class="meta">
+        <span><b>EXPERIMENT 04.01</b> · CNN.BUILDER</span>
+        <span><b>STATUS</b> · <span style="color:var(--ok)">FORWARD-PASS LIVE</span></span>
+        <span><b>LAYERS</b> · <span id="layerCount" style="color:var(--text)">8</span></span>
+        <span><b>PARAMS</b> · <span id="paramCount" style="color:var(--text)">0</span></span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- presets row -->
+      <div class="flex gap-2 items-center mb-4" style="flex-wrap:wrap;">
+        <span class="mono small muted" style="margin-right:8px;">PRESET ARCHITECTURES /</span>
+        <button class="preset-btn" data-preset="lenet">LeNet-5</button>
+        <button class="preset-btn" data-preset="vgg">VGG-style</button>
+        <button class="preset-btn" data-preset="resnet">ResNet-18 block</button>
+        <button class="preset-btn" data-preset="mobile">MobileNet</button>
+        <button class="preset-btn" data-preset="custom">Empty</button>
+        <span class="topbar-spacer"></span>
+        <span class="chip accent" id="totalShape">28×28×1 → 10</span>
+        <span class="chip magenta" id="totalParams">0 params</span>
+      </div>
+
+      <div class="grid-12">
+        <!-- PALETTE -->
+        <div class="span-3">
+          <div class="panel ticks">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head"><span class="dot"></span> LAYER PALETTE <span class="right">DRAG TO CANVAS</span></div>
+            <div class="panel-body">
+              <div class="palette" id="palette">
+                <div class="palette-item" draggable="true" data-type="Conv2D"><span class="swatch" style="background:var(--accent)"></span>Conv2D<span class="meta">3×3</span></div>
+                <div class="palette-item" draggable="true" data-type="MaxPool"><span class="swatch" style="background:var(--cyan)"></span>MaxPool<span class="meta">2×2</span></div>
+                <div class="palette-item" draggable="true" data-type="AvgPool"><span class="swatch" style="background:var(--cyan)"></span>AvgPool<span class="meta">2×2</span></div>
+                <div class="palette-item" draggable="true" data-type="BatchNorm"><span class="swatch" style="background:#ff9d3a"></span>BatchNorm<span class="meta">·</span></div>
+                <div class="palette-item" draggable="true" data-type="ReLU"><span class="swatch" style="background:#f5f5f5"></span>ReLU<span class="meta">act</span></div>
+                <div class="palette-item" draggable="true" data-type="GELU"><span class="swatch" style="background:#f5f5f5"></span>GELU<span class="meta">act</span></div>
+                <div class="palette-item" draggable="true" data-type="Dropout"><span class="swatch" style="background:#888"></span>Dropout<span class="meta">0.2</span></div>
+                <div class="palette-item" draggable="true" data-type="Flatten"><span class="swatch" style="background:#888"></span>Flatten<span class="meta">·</span></div>
+                <div class="palette-item" draggable="true" data-type="Dense"><span class="swatch" style="background:var(--magenta)"></span>Dense<span class="meta">FC</span></div>
+                <div class="palette-item" draggable="true" data-type="Residual"><span class="swatch" style="background:var(--accent)"></span>Residual<span class="meta">+</span></div>
+                <div class="palette-item" draggable="true" data-type="Attention"><span class="swatch" style="background:var(--accent)"></span>Attention<span class="meta">⊕</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- selected layer inspector -->
+          <div class="panel mt-6" id="inspectorPanel">
+            <div class="panel-head"><span class="dot"></span> INSPECTOR <span class="right" id="inspName">no selection</span></div>
+            <div class="panel-body" id="inspector">
+              <div class="small muted">Click a layer in the network to edit its hyperparameters.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- NETWORK CANVAS -->
+        <div class="span-9">
+          <div class="panel ticks" style="position:relative;">
+            <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
+            <div class="panel-head">
+              <span class="dot"></span> NETWORK GRAPH · INPUT 28×28×1 (MNIST-style)
+              <span class="right">
+                <button class="btn" id="addBtn" style="padding:4px 10px;">＋ ADD LAYER</button>
+                <button class="btn" id="trainBtn" style="padding:4px 10px;margin-left:6px;">▶ SIMULATE FORWARD-PASS</button>
+              </span>
+            </div>
+            <div class="panel-body" style="overflow-x:auto;">
+              <div class="net-row" id="netRow"></div>
+              <div class="scan mt-2"></div>
+            </div>
+          </div>
+
+          <!-- Activation visualization row -->
+          <div class="panel mt-6">
+            <div class="panel-head"><span class="dot"></span> ACTIVATIONS · live feature maps after each layer <span class="right" id="actLabel">layer 1 / 8</span></div>
+            <div class="panel-body" id="actBody">
+              <div class="fmap-row" id="actRow"></div>
+            </div>
+          </div>
+
+          <!-- tensor flow chart + param chart -->
+          <div class="grid-2 mt-6" style="grid-template-columns: 1fr 1fr; gap: 24px;">
+            <div class="panel">
+              <div class="panel-head"><span class="dot"></span> SPATIAL SIZE · per layer</div>
+              <div class="panel-body"><canvas id="spatialChart" width="500" height="180" style="width:100%;height:180px;"></canvas></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><span class="dot" style="background:var(--magenta);box-shadow:0 0 6px var(--magenta);"></span> CHANNEL DEPTH · per layer</div>
+              <div class="panel-body"><canvas id="channelChart" width="500" height="180" style="width:100%;height:180px;"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- explainer -->
+      <div class="callout mt-8">
+        <b>The rule of thumb →</b> spatial size shrinks, channel depth grows. Each Conv extracts more features; each Pool halves the spatial dimension. By the end you have a fat-but-tiny tensor packed with abstract semantics, ready to flatten and classify.
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="../assets/nav.js"></script>
+<script>CORTEX.mount("cnn", "<b>CORTEX.LAB</b> &nbsp;/&nbsp; ARCHITECTURES &nbsp;/&nbsp; <b style='color:var(--accent)'>CNN BUILDER</b>");</script>
+
+<script>
+/* ===== CNN BUILDER ===== */
+const INPUT_SHAPE = { h: 28, w: 28, c: 1 };
+
+const LAYER_DEFAULTS = {
+  Conv2D: { kernel: 3, filters: 32, stride: 1, padding: 1 },
+  MaxPool: { kernel: 2, stride: 2 },
+  AvgPool: { kernel: 2, stride: 2 },
+  BatchNorm: {},
+  ReLU: {},
+  GELU: {},
+  Dropout: { rate: 0.25 },
+  Flatten: {},
+  Dense: { units: 128 },
+  Residual: { filters: 32 },
+  Attention: { heads: 4, dim: 64 },
+};
+
+const LAYER_CLASS = {
+  Conv2D: "conv", MaxPool: "pool", AvgPool: "pool", BatchNorm: "norm",
+  ReLU: "act", GELU: "act", Dropout: "drop", Flatten: "drop",
+  Dense: "dense", Residual: "conv", Attention: "conv",
+};
+
+const PRESETS = {
+  lenet: [
+    { type: "Conv2D", params: { kernel: 5, filters: 6, stride: 1, padding: 0 } },
+    { type: "ReLU", params: {} },
+    { type: "MaxPool", params: { kernel: 2, stride: 2 } },
+    { type: "Conv2D", params: { kernel: 5, filters: 16, stride: 1, padding: 0 } },
+    { type: "ReLU", params: {} },
+    { type: "MaxPool", params: { kernel: 2, stride: 2 } },
+    { type: "Flatten", params: {} },
+    { type: "Dense", params: { units: 120 } },
+    { type: "ReLU", params: {} },
+    { type: "Dense", params: { units: 10 } },
+  ],
+  vgg: [
+    { type: "Conv2D", params: { kernel: 3, filters: 32, stride: 1, padding: 1 } },
+    { type: "ReLU", params: {} },
+    { type: "Conv2D", params: { kernel: 3, filters: 32, stride: 1, padding: 1 } },
+    { type: "ReLU", params: {} },
+    { type: "MaxPool", params: { kernel: 2, stride: 2 } },
+    { type: "Conv2D", params: { kernel: 3, filters: 64, stride: 1, padding: 1 } },
+    { type: "ReLU", params: {} },
+    { type: "Conv2D", params: { kernel: 3, filters: 64, stride: 1, padding: 1 } },
+    { type: "ReLU", params: {} },
+    { type: "MaxPool", params: { kernel: 2, stride: 2 } },
+    { type: "Flatten", params: {} },
+    { type: "Dense", params: { units: 256 } },
+    { type: "Dropout", params: { rate: 0.5 } },
+    { type: "Dense", params: { units: 10 } },
+  ],
+  resnet: [
+    { type: "Conv2D", params: { kernel: 3, filters: 32, stride: 1, padding: 1 } },
+    { type: "BatchNorm", params: {} },
+    { type: "ReLU", params: {} },
+    { type: "Residual", params: { filters: 32 } },
+    { type: "Residual", params: { filters: 64 } },
+    { type: "MaxPool", params: { kernel: 2, stride: 2 } },
+    { type: "Residual", params: { filters: 128 } },
+    { type: "Flatten", params: {} },
+    { type: "Dense", params: { units: 10 } },
+  ],
+  mobile: [
+    { type: "Conv2D", params: { kernel: 3, filters: 16, stride: 2, padding: 1 } },
+    { type: "BatchNorm", params: {} },
+    { type: "ReLU", params: {} },
+    { type: "Conv2D", params: { kernel: 3, filters: 32, stride: 1, padding: 1 } },
+    { type: "BatchNorm", params: {} },
+    { type: "ReLU", params: {} },
+    { type: "Conv2D", params: { kernel: 3, filters: 64, stride: 2, padding: 1 } },
+    { type: "ReLU", params: {} },
+    { type: "Flatten", params: {} },
+    { type: "Dense", params: { units: 10 } },
+  ],
+  custom: [],
+};
+
+let layers = JSON.parse(JSON.stringify(PRESETS.vgg));
+let selectedIdx = -1;
+
+function calcShapes() {
+  let shape = { ...INPUT_SHAPE };
+  let totalParams = 0;
+  const shapes = [{ ...shape }];
+  const paramsByLayer = [0];
+  for (const l of layers) {
+    let p = 0;
+    switch (l.type) {
+      case "Conv2D": {
+        const { kernel, filters, stride, padding } = l.params;
+        shape = {
+          h: Math.max(1, Math.floor((shape.h + 2*padding - kernel) / stride) + 1),
+          w: Math.max(1, Math.floor((shape.w + 2*padding - kernel) / stride) + 1),
+          c: filters,
+        };
+        p = kernel*kernel * shapes[shapes.length-1].c * filters + filters;
+        break;
+      }
+      case "MaxPool":
+      case "AvgPool": {
+        const { kernel, stride } = l.params;
+        shape = {
+          h: Math.max(1, Math.floor((shape.h - kernel) / stride) + 1),
+          w: Math.max(1, Math.floor((shape.w - kernel) / stride) + 1),
+          c: shape.c,
+        };
+        break;
+      }
+      case "BatchNorm": p = 2 * shape.c; break;
+      case "ReLU":
+      case "GELU":
+      case "Dropout":
+        break;
+      case "Flatten":
+        shape = { h: 1, w: 1, c: shape.h * shape.w * shape.c };
+        break;
+      case "Dense": {
+        const { units } = l.params;
+        p = shape.c * units + units;
+        shape = { h: 1, w: 1, c: units };
+        break;
+      }
+      case "Residual": {
+        p = (3*3 * shape.c * l.params.filters + l.params.filters) * 2;
+        shape = { h: shape.h, w: shape.w, c: l.params.filters };
+        break;
+      }
+      case "Attention": {
+        const { dim } = l.params;
+        const tokens = shape.h * shape.w;
+        p = shape.c * dim * 3 + dim * shape.c;
+        shape = { h: shape.h, w: shape.w, c: shape.c };
+        break;
+      }
+    }
+    shapes.push({ ...shape });
+    paramsByLayer.push(p);
+    totalParams += p;
+  }
+  return { shapes, paramsByLayer, totalParams };
+}
+
+function fmt(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(2) + "M";
+  if (n >= 1e3) return (n/1e3).toFixed(1) + "k";
+  return n.toString();
+}
+
+function paramsBrief(l) {
+  switch (l.type) {
+    case "Conv2D": return `k=${l.params.kernel} f=${l.params.filters} s=${l.params.stride}`;
+    case "MaxPool":
+    case "AvgPool": return `k=${l.params.kernel} s=${l.params.stride}`;
+    case "Dropout": return `p=${l.params.rate}`;
+    case "Dense": return `u=${l.params.units}`;
+    case "Residual": return `f=${l.params.filters}`;
+    case "Attention": return `h=${l.params.heads} d=${l.params.dim}`;
+    case "BatchNorm": return "γ,β";
+    case "ReLU": return "max(0,x)";
+    case "GELU": return "x·Φ(x)";
+    case "Flatten": return "→ vec";
+    default: return "";
+  }
+}
+
+function renderNetwork() {
+  const { shapes, paramsByLayer, totalParams } = calcShapes();
+  const row = document.getElementById("netRow");
+  row.innerHTML = "";
+
+  // input chip
+  const input = document.createElement("div");
+  input.className = "layer-card";
+  input.style.background = "var(--void)"; input.style.borderColor = "var(--accent)";
+  input.innerHTML = `<div class="type">INPUT</div><div class="name">Image</div><div class="shape-out">${shapes[0].h}×${shapes[0].w}×${shapes[0].c}</div>`;
+  row.appendChild(input);
+
+  layers.forEach((l, idx) => {
+    const arrow = document.createElement("div"); arrow.className = "arrow-conn"; arrow.textContent = "→"; row.appendChild(arrow);
+    const card = document.createElement("div");
+    const cls = LAYER_CLASS[l.type] || "";
+    card.className = `layer-card ${cls}${selectedIdx===idx?' selected':''}`;
+    const s = shapes[idx+1];
+    card.innerHTML = `
+      <div class="stripe"></div>
+      <div class="del" data-del="${idx}">✕</div>
+      <div class="type">${l.type.toUpperCase()}</div>
+      <div class="name">${l.type}</div>
+      <div class="shape-out">${s.h}×${s.w}×${s.c}</div>
+      <div class="params">${paramsBrief(l)}</div>`;
+    card.addEventListener("click", e => {
+      if (e.target.dataset.del) return;
+      selectedIdx = idx; renderNetwork(); renderInspector();
+    });
+    card.querySelector(".del").addEventListener("click", e => {
+      e.stopPropagation();
+      const i = +e.target.dataset.del;
+      layers.splice(i, 1);
+      if (selectedIdx >= layers.length) selectedIdx = -1;
+      renderAll();
+    });
+    row.appendChild(card);
+  });
+
+  // drop zone tail
+  const arrow2 = document.createElement("div"); arrow2.className = "arrow-conn"; arrow2.textContent = "→"; row.appendChild(arrow2);
+  const dz = document.createElement("div");
+  dz.className = "drop-zone";
+  dz.style.cssText = "flex: 0 0 130px; display: grid; place-items: center;";
+  dz.innerHTML = "DROP<br>LAYER";
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("over");
+    const type = e.dataTransfer.getData("text/plain");
+    if (LAYER_DEFAULTS[type]) {
+      layers.push({ type, params: JSON.parse(JSON.stringify(LAYER_DEFAULTS[type])) });
+      renderAll();
+    }
+  });
+  row.appendChild(dz);
+
+  document.getElementById("layerCount").textContent = layers.length;
+  document.getElementById("paramCount").textContent = fmt(totalParams);
+  const finalC = shapes[shapes.length-1];
+  document.getElementById("totalShape").textContent = `28×28×1 → ${finalC.h}×${finalC.w}×${finalC.c}`;
+  document.getElementById("totalParams").textContent = `${fmt(totalParams)} params`;
+}
+
+function renderInspector() {
+  const insp = document.getElementById("inspector");
+  const name = document.getElementById("inspName");
+  if (selectedIdx < 0 || !layers[selectedIdx]) {
+    insp.innerHTML = `<div class="small muted">Click a layer in the network to edit its hyperparameters.</div>`;
+    name.textContent = "no selection";
+    return;
+  }
+  const l = layers[selectedIdx];
+  name.textContent = `${l.type} · #${selectedIdx+1}`;
+  let html = "";
+  for (const [k, v] of Object.entries(l.params)) {
+    html += `
+      <div class="ctrl-row" style="padding:8px 0;">
+        <span class="label">${k.toUpperCase()}</span>
+        <input type="number" value="${v}" step="${typeof v === 'number' && v < 1 ? 0.05 : 1}" data-key="${k}" style="flex:1;">
+      </div>`;
+  }
+  if (!html) html = `<div class="small muted">${l.type} has no tunable parameters.</div>`;
+  html += `<div class="mt-4"><button class="btn danger w-full" id="delLayer" style="flex:1;">REMOVE LAYER</button></div>`;
+  insp.innerHTML = html;
+  insp.querySelectorAll("input").forEach(inp => inp.addEventListener("input", e => {
+    l.params[e.target.dataset.key] = parseFloat(e.target.value) || 0;
+    renderNetwork(); renderActivations(); renderCharts();
+  }));
+  document.getElementById("delLayer").addEventListener("click", () => {
+    layers.splice(selectedIdx, 1); selectedIdx = -1; renderAll();
+  });
+}
+
+/* ===== Activation visualization (synthetic but coherent) ===== */
+function renderActivations() {
+  const { shapes } = calcShapes();
+  const row = document.getElementById("actRow");
+  row.innerHTML = "";
+  // show up to 6 layers
+  const totalLayers = layers.length;
+  const labels = [];
+  const showIndices = [];
+  // always show input
+  showIndices.push(0);
+  // sample ~5 layers
+  const step = Math.max(1, Math.floor(totalLayers / 5));
+  for (let i = step; i < totalLayers; i += step) showIndices.push(i+1);
+  if (totalLayers > 0) showIndices.push(totalLayers);
+  const seen = new Set();
+  showIndices.filter(i => !seen.has(i) && seen.add(i)).forEach((i, _) => {
+    const layerName = i === 0 ? "INPUT" : (layers[i-1] ? layers[i-1].type : "");
+    const s = shapes[i];
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:6px;";
+    const fm = document.createElement("div");
+    fm.className = "fm";
+    fm.style.cssText = "width:80px;height:80px;background:#000;border:1px solid var(--hairline);position:relative;overflow:hidden;";
+    // small canvas drawing layer-specific texture
+    const cv = document.createElement("canvas"); cv.width = 64; cv.height = 64;
+    cv.style.cssText = "width:100%;height:100%;image-rendering:pixelated;";
+    drawSyntheticFeature(cv, i, layerName);
+    fm.appendChild(cv);
+    wrap.appendChild(fm);
+    const lbl = document.createElement("div");
+    lbl.style.cssText = "font-family:var(--font-mono);font-size:9.5px;color:var(--text-3);text-align:center;line-height:1.2;";
+    lbl.innerHTML = `${layerName}<br><span style='color:var(--text-2)'>${s.h}×${s.w}×${s.c}</span>`;
+    wrap.appendChild(lbl);
+    row.appendChild(wrap);
+  });
+  document.getElementById("actLabel").textContent = `${showIndices.length} previews of ${totalLayers+1} stages`;
+}
+
+function drawSyntheticFeature(cv, layerIdx, name) {
+  const ctx = cv.getContext("2d");
+  const N = 64;
+  const img = ctx.createImageData(N, N);
+  // layer 0 = MNIST-like "7"
+  if (layerIdx === 0) {
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      let v = 12;
+      // simple "7" digit
+      if (y < 12 && x > 12 && x < 52) v = 230;
+      if (y >= 12 && y < 60 && Math.abs(x - (50 - (y-12)*0.6)) < 4) v = 230;
+      const i = (y*N+x)*4;
+      img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 255;
+    }
+  } else {
+    // synthesize: deeper layers = blockier, more abstract, higher-contrast
+    const blockSize = Math.min(16, 1 + layerIdx*2);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const bx = Math.floor(x / blockSize), by = Math.floor(y / blockSize);
+      const seed = bx*7 + by*13 + layerIdx*31 + name.charCodeAt(0);
+      const v = (Math.sin(seed)*0.5 + 0.5);
+      const i = (y*N+x)*4;
+      const hot = v > 0.65;
+      const cold = v < 0.35;
+      if (hot) { img.data[i] = Math.floor(255*v); img.data[i+1] = Math.floor(212*v); img.data[i+2] = 0; }
+      else if (cold) { img.data[i] = Math.floor(40*(1-v)); img.data[i+1] = 0; img.data[i+2] = Math.floor(80*(1-v)); }
+      else { const g = Math.floor(60*v); img.data[i] = g; img.data[i+1] = g; img.data[i+2] = g; }
+      img.data[i+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/* charts */
+function drawChart(canvasId, values, color) {
+  const cv = document.getElementById(canvasId);
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.offsetWidth * dpr; cv.height = cv.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const w = cv.offsetWidth, h = cv.offsetHeight;
+  ctx.clearRect(0, 0, w, h);
+  const max = Math.max(1, ...values);
+  // axes
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.beginPath(); ctx.moveTo(20, 10); ctx.lineTo(20, h-20); ctx.lineTo(w-10, h-20); ctx.stroke();
+  // grid
+  for (let i = 1; i <= 4; i++) {
+    const y = 10 + (h-30)*i/5;
+    ctx.beginPath(); ctx.moveTo(20, y); ctx.lineTo(w-10, y); ctx.stroke();
+  }
+  // bars
+  const bw = (w - 30) / values.length;
+  values.forEach((v, i) => {
+    const bh = (v/max) * (h - 35);
+    const x = 20 + i*bw, y = h-20 - bh;
+    ctx.fillStyle = color;
+    ctx.fillRect(x+2, y, bw-4, bh);
+    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.strokeRect(x+2-0.5, y-0.5, bw-4+1, bh+1);
+  });
+  // labels
+  ctx.fillStyle = "var(--text-3)"; ctx.font = "9px JetBrains Mono"; ctx.textAlign = "center";
+  values.forEach((v, i) => {
+    if (i % Math.max(1, Math.floor(values.length/8)) === 0) {
+      ctx.fillStyle = "rgba(154,163,178,0.7)";
+      ctx.fillText(`L${i}`, 20 + i*bw + bw/2, h-6);
+    }
+  });
+}
+
+function renderCharts() {
+  const { shapes } = calcShapes();
+  drawChart("spatialChart", shapes.map(s => s.h * s.w), "rgba(255,212,0,0.6)");
+  drawChart("channelChart", shapes.map(s => s.c), "rgba(255,51,102,0.6)");
+}
+
+function renderAll() {
+  renderNetwork();
+  renderInspector();
+  renderActivations();
+  renderCharts();
+}
+
+/* events */
+document.getElementById("palette").querySelectorAll(".palette-item").forEach(item => {
+  item.addEventListener("dragstart", e => e.dataTransfer.setData("text/plain", item.dataset.type));
+});
+document.querySelectorAll(".preset-btn").forEach(b => b.addEventListener("click", () => {
+  layers = JSON.parse(JSON.stringify(PRESETS[b.dataset.preset]));
+  selectedIdx = -1; renderAll();
+}));
+document.getElementById("addBtn").addEventListener("click", () => {
+  layers.push({ type: "Conv2D", params: { ...LAYER_DEFAULTS.Conv2D } }); renderAll();
+});
+
+/* forward pass simulation */
+document.getElementById("trainBtn").addEventListener("click", e => {
+  const cards = document.querySelectorAll(".net-row .layer-card");
+  e.target.disabled = true; e.target.textContent = "● PROPAGATING";
+  let i = 0;
+  const flash = () => {
+    if (i >= cards.length) {
+      e.target.disabled = false; e.target.textContent = "▶ SIMULATE FORWARD-PASS";
+      cards.forEach(c => c.style.boxShadow = "");
+      return;
+    }
+    cards.forEach((c, j) => { c.style.boxShadow = j === i ? "0 0 18px var(--accent)" : ""; });
+    i++;
+    setTimeout(flash, 140);
+  };
+  flash();
+});
+
+/* init */
+renderAll();
+window.addEventListener("resize", () => renderCharts());
+</script>
+</body>
+</html>
