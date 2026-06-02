@@ -38,7 +38,7 @@
       <p class="lede">The multi-layer perceptron is the atom of deep learning. Here a tiny 2→2→1 network trains in front of you: the signal flows <span style="color:var(--accent)">forward</span> (yellow), the error flows <span style="color:var(--magenta)">backward</span> (magenta), weights update, the loss drops. Every number is shown in sync with the animation — nothing hidden.</p>
       <div class="meta">
         <span><b>EXPERIMENT 08.01</b> · MLP.TRACE</span>
-        <span><b>NET</b> · 2 → 2 → 1 · sigmoid</span>
+        <span><b>NET</b> · <span id="netMeta">2 → 2 → 1 · sigmoid</span></span>
         <span><b>LOSS</b> · ½(ŷ−y)²</span>
         <span><b>STATUS</b> · <span style="color:var(--ok)">LIVE</span></span>
       </div>
@@ -103,6 +103,32 @@
               </div>
               <div class="ctrl-row"><span class="label">SPEED</span><input type="range" min="0.3" max="3" step="0.1" value="1" id="speed"><span class="value" id="speedV">1.0×</span></div>
               <div class="ctrl-row"><span class="label">lr η</span><input type="range" min="0.5" max="6" step="0.1" value="3" id="lr"><span class="value" id="lrV">3.0</span></div>
+              <div class="ctrl-row"><span class="label">hidden layers</span><input type="range" min="1" max="3" step="1" value="2" id="hl"><span class="value" id="hlV">2</span></div>
+              <div class="ctrl-row"><span class="label">neurons / layer</span><input type="range" min="1" max="5" step="1" value="3" id="hn"><span class="value" id="hnV">3</span></div>
+              <div class="ctrl-row"><span class="label">activation</span>
+                <select id="act" style="flex:1;">
+                  <option value="sigmoid">sigmoid</option>
+                  <option value="tanh" selected>tanh</option>
+                  <option value="relu">relu</option>
+                </select>
+                <span class="value" id="actV">tanh</span>
+              </div>
+              <div class="ctrl-row"><span class="label">loss</span>
+                <select id="loss" style="flex:1;">
+                  <option value="mse" selected>mse</option>
+                  <option value="mae">mae</option>
+                  <option value="bce">bce</option>
+                </select>
+                <span class="value" id="lossV">mse</span>
+              </div>
+              <div class="ctrl-row"><span class="label">optimizer</span>
+                <select id="opt" style="flex:1;">
+                  <option value="sgd">sgd</option>
+                  <option value="adam" selected>adam</option>
+                  <option value="adamw">adamw</option>
+                </select>
+                <span class="value" id="optV">adam</span>
+              </div>
               <div class="ctrl-row"><span class="label">x₁</span><input type="range" min="0" max="1" step="0.05" value="0.10" id="x1"><span class="value" id="x1V">0.10</span></div>
               <div class="ctrl-row"><span class="label">x₂</span><input type="range" min="0" max="1" step="0.05" value="0.30" id="x2"><span class="value" id="x2V">0.30</span></div>
               <div class="ctrl-row" style="border-bottom:0;"><span class="label">target y</span><input type="range" min="0.05" max="0.95" step="0.05" value="0.90" id="ty"><span class="value" id="tyV">0.90</span></div>
@@ -133,54 +159,208 @@
 <script>
 /* ===== params ===== */
 let x1=0.10, x2=0.30, ty=0.90, lr=3.0, speed=1;
-let W = {};
-function xavier(fanIn){ return (Math.random()*2-1) * Math.sqrt(1/fanIn); }
-function initW(){
-  W = { w1:xavier(2), w2:xavier(2), w3:xavier(2), w4:xavier(2), b1:0, b2:0, w5:xavier(2), w6:xavier(2), b3:0 };
-}
-const sig = z => 1/(1+Math.exp(-z));
+let hiddenLayers=2, neuronsPerLayer=3;
+let activation="tanh", lossType="mse", optimizer="adam";
+let W = {}, optState = {};
 
-function forward(Wt){
-  const zh1=Wt.w1*x1+Wt.w2*x2+Wt.b1, zh2=Wt.w3*x1+Wt.w4*x2+Wt.b2;
-  const ah1=sig(zh1), ah2=sig(zh2);
-  const zo=Wt.w5*ah1+Wt.w6*ah2+Wt.b3, yh=sig(zo);
-  const L=0.5*(yh-ty)**2;
-  return {zh1,zh2,ah1,ah2,zo,yh,L};
+function layerSizes(){
+  return [2, ...Array(hiddenLayers).fill(neuronsPerLayer), 1];
 }
-function backward(Wt,f){
-  const dO=(f.yh-ty)*f.yh*(1-f.yh);
-  const dw5=dO*f.ah1, dw6=dO*f.ah2, db3=dO;
-  const dH1=dO*Wt.w5*f.ah1*(1-f.ah1), dH2=dO*Wt.w6*f.ah2*(1-f.ah2);
-  const dw1=dH1*x1, dw2=dH1*x2, db1=dH1, dw3=dH2*x1, dw4=dH2*x2, db2=dH2;
-  return {dO,dw5,dw6,db3,dH1,dH2,dw1,dw2,db1,dw3,dw4,db2};
+function xavier(fanIn){ return (Math.random()*2-1) * Math.sqrt(1/fanIn); }
+function buildMatrix(outSize, inSize, fillFn){
+  return Array.from({length: outSize}, () => Array.from({length: inSize}, () => fillFn()));
+}
+function cloneW(Wt){
+  return {
+    weights: Wt.weights.map(m => m.map(r => r.slice())),
+    biases: Wt.biases.map(b => b.slice())
+  };
+}
+function cloneState(st){
+  return {
+    t: st.t,
+    mW: st.mW.map(m => m.map(r => r.slice())),
+    vW: st.vW.map(m => m.map(r => r.slice())),
+    mB: st.mB.map(b => b.slice()),
+    vB: st.vB.map(b => b.slice())
+  };
+}
+function initOptState(){
+  optState = { t: 0, mW: [], vW: [], mB: [], vB: [] };
+  W.weights.forEach((m, l) => {
+    const outSize = m.length, inSize = m[0].length;
+    optState.mW[l] = buildMatrix(outSize, inSize, () => 0);
+    optState.vW[l] = buildMatrix(outSize, inSize, () => 0);
+    optState.mB[l] = Array.from({length: outSize}, () => 0);
+    optState.vB[l] = Array.from({length: outSize}, () => 0);
+  });
+}
+function initW(){
+  const sizes = layerSizes();
+  W = { weights: [], biases: [] };
+  for (let l = 0; l < sizes.length - 1; l++) {
+    const inSize = sizes[l], outSize = sizes[l + 1];
+    W.weights.push(buildMatrix(outSize, inSize, () => xavier(inSize)));
+    W.biases.push(Array.from({length: outSize}, () => 0));
+  }
+  initOptState();
+  updateNetMeta();
+}
+
+const sig = z => 1/(1+Math.exp(-z));
+const ACT = {
+  sigmoid: {
+    f: z => 1/(1+Math.exp(-z)),
+    df: (z, a) => (a !== undefined ? a : 1/(1+Math.exp(-z))) * (1 - (a !== undefined ? a : 1/(1+Math.exp(-z))))
+  },
+  tanh: {
+    f: z => Math.tanh(z),
+    df: (z, a) => 1 - (a !== undefined ? a : Math.tanh(z))**2
+  },
+  relu: {
+    f: z => Math.max(0, z),
+    df: (z) => z > 0 ? 1 : 0
+  }
+};
+function lossValue(yh, y, type){
+  const eps = 1e-6;
+  if (type === "mae") return Math.abs(yh - y);
+  if (type === "bce") return -(y * Math.log(yh + eps) + (1 - y) * Math.log(1 - yh + eps));
+  return 0.5 * (yh - y) ** 2;
+}
+
+function forward(){
+  const sizes = layerSizes();
+  const a = [[x1, x2]];
+  const z = [];
+  for (let l = 0; l < sizes.length - 1; l++) {
+    const Wl = W.weights[l], bl = W.biases[l];
+    const outSize = sizes[l + 1];
+    const zl = Array.from({length: outSize}, (_, i) => {
+      let s = bl[i];
+      for (let j = 0; j < Wl[i].length; j++) s += Wl[i][j] * a[l][j];
+      return s;
+    });
+    z.push(zl);
+    const al = (l === sizes.length - 2)
+      ? zl.map(sig)
+      : zl.map(v => ACT[activation].f(v));
+    a.push(al);
+  }
+  const yhat = a[a.length - 1][0];
+  const L = lossValue(yhat, ty, lossType);
+  return {a, z, yhat, L};
+}
+
+function backward(f){
+  const sizes = layerSizes();
+  const L = sizes.length - 1;
+  const deltas = Array.from({length: L}, () => []);
+  const yhat = f.yhat;
+  const outPrime = yhat * (1 - yhat);
+  let dL_dz = 0;
+  if (lossType === "mae") dL_dz = Math.sign(yhat - ty) * outPrime;
+  else if (lossType === "bce") dL_dz = (yhat - ty);
+  else dL_dz = (yhat - ty) * outPrime;
+  deltas[L - 1] = [dL_dz];
+
+  for (let l = L - 2; l >= 0; l--) {
+    const curSize = sizes[l + 1];
+    const nextSize = sizes[l + 2];
+    const delta = Array.from({length: curSize}, () => 0);
+    for (let i = 0; i < curSize; i++) {
+      let s = 0;
+      for (let k = 0; k < nextSize; k++) s += W.weights[l + 1][k][i] * deltas[l + 1][k];
+      const zval = f.z[l][i];
+      const aval = f.a[l + 1][i];
+      delta[i] = s * ACT[activation].df(zval, aval);
+    }
+    deltas[l] = delta;
+  }
+
+  const gW = [], gB = [];
+  for (let l = 0; l < L; l++) {
+    const outSize = sizes[l + 1];
+    const inSize = sizes[l];
+    gW[l] = Array.from({length: outSize}, (_, i) =>
+      Array.from({length: inSize}, (_, j) => deltas[l][i] * f.a[l][j])
+    );
+    gB[l] = deltas[l].slice();
+  }
+  return {deltas, gW, gB};
+}
+
+function applyUpdateInternal(Wt, st, grads, optName){
+  const sizes = layerSizes();
+  const L = sizes.length - 1;
+  if (optName === "sgd") {
+    for (let l = 0; l < L; l++) {
+      for (let i = 0; i < Wt.weights[l].length; i++) {
+        for (let j = 0; j < Wt.weights[l][i].length; j++) {
+          Wt.weights[l][i][j] -= lr * grads.gW[l][i][j];
+        }
+        Wt.biases[l][i] -= lr * grads.gB[l][i];
+      }
+    }
+    return;
+  }
+  const b1 = 0.9, b2 = 0.999, eps = 1e-8;
+  const wd = optName === "adamw" ? 0.01 : 0;
+  st.t += 1;
+  const t = st.t;
+  for (let l = 0; l < L; l++) {
+    for (let i = 0; i < Wt.weights[l].length; i++) {
+      for (let j = 0; j < Wt.weights[l][i].length; j++) {
+        const g = grads.gW[l][i][j];
+        st.mW[l][i][j] = b1 * st.mW[l][i][j] + (1 - b1) * g;
+        st.vW[l][i][j] = b2 * st.vW[l][i][j] + (1 - b2) * g * g;
+        const mhat = st.mW[l][i][j] / (1 - Math.pow(b1, t));
+        const vhat = st.vW[l][i][j] / (1 - Math.pow(b2, t));
+        const step = lr * mhat / (Math.sqrt(vhat) + eps);
+        const decay = wd ? lr * wd * Wt.weights[l][i][j] : 0;
+        Wt.weights[l][i][j] -= (step + decay);
+      }
+      const gb = grads.gB[l][i];
+      st.mB[l][i] = b1 * st.mB[l][i] + (1 - b1) * gb;
+      st.vB[l][i] = b2 * st.vB[l][i] + (1 - b2) * gb * gb;
+      const mbhat = st.mB[l][i] / (1 - Math.pow(b1, t));
+      const vbhat = st.vB[l][i] / (1 - Math.pow(b2, t));
+      const bstep = lr * mbhat / (Math.sqrt(vbhat) + eps);
+      Wt.biases[l][i] -= bstep;
+    }
+  }
+}
+function previewUpdate(Wt, st, grads, optName){
+  const Wc = cloneW(Wt);
+  const sc = cloneState(st);
+  applyUpdateInternal(Wc, sc, grads, optName);
+  return Wc;
 }
 const f4=n=>n.toFixed(4), f3=n=>n.toFixed(3);
 
 /* ===== cycle state ===== */
 let oldW, cyc, stepN=0, lossHist=[];
 function startCycle(){
-  oldW = {...W};
-  const f=forward(W); const b=backward(W,f);
-  cyc={f,b};
+  oldW = cloneW(W);
+  const f = forward();
+  const b = backward(f);
+  const preview = previewUpdate(oldW, optState, b, optimizer);
+  cyc = {f, b, preview};
   lossHist.push(f.L); if(lossHist.length>160)lossHist.shift();
   document.getElementById("lossNow").textContent=f4(f.L);
   document.getElementById("stepN").textContent=stepN;
 }
 function commitUpdate(){
-  const b=cyc.b;
-  W.w1-=lr*b.dw1; W.w2-=lr*b.dw2; W.w3-=lr*b.dw3; W.w4-=lr*b.dw4;
-  W.b1-=lr*b.db1; W.b2-=lr*b.db2; W.w5-=lr*b.dw5; W.w6-=lr*b.dw6; W.b3-=lr*b.db3;
+  applyUpdateInternal(W, optState, cyc.b, optimizer);
   stepN++;
 }
 
 /* ===== phases ===== */
 const PHASES=[
-  {id:"f1", name:"FORWARD · hidden", dur:1500, back:false},
-  {id:"f2", name:"FORWARD · output", dur:1300, back:false},
+  {id:"fwd", name:"FORWARD", dur:1600, back:false},
   {id:"loss", name:"LOSS", dur:1100, back:false},
-  {id:"b1", name:"BACKWARD · output", dur:1500, back:true},
-  {id:"b2", name:"BACKWARD · hidden", dur:1500, back:true},
-  {id:"up", name:"UPDATE weights", dur:1500, back:true},
+  {id:"bwd", name:"BACKWARD", dur:1600, back:true},
+  {id:"up", name:"UPDATE", dur:1500, back:true},
 ];
 let phaseIdx=0, phaseProg=0, playing=true, lastT=0;
 
@@ -198,18 +378,40 @@ function updateRail(){
 
 /* ===== geometry ===== */
 function nodes(W2,H2){
-  const cx=[70, W2/2, W2-80];
-  return {
-    inp:[{x:cx[0],y:H2*0.34,l:"x₁",v:x1},{x:cx[0],y:H2*0.66,l:"x₂",v:x2}],
-    hid:[{x:cx[1],y:H2*0.34,l:"h₁"},{x:cx[1],y:H2*0.66,l:"h₂"}],
-    out:[{x:cx[2],y:H2*0.5,l:"ŷ"}],
-  };
+  const sizes = layerSizes();
+  const layers = sizes.length;
+  const left = 70, right = W2 - 80;
+  const xStep = (right - left) / (layers - 1);
+  const layersOut = [];
+  for (let l = 0; l < layers; l++) {
+    const n = sizes[l];
+    const ys = n === 1 ? [H2 * 0.5] : Array.from({length: n}, (_, i) => (H2 * (i + 1)) / (n + 1));
+    const x = left + xStep * l;
+    const nodes = ys.map((y, i) => {
+      let label = "";
+      if (l === 0) label = i === 0 ? "x₁" : "x₂";
+      else if (l === layers - 1) label = "ŷ";
+      else label = `h${i + 1}`;
+      return {x, y, l: label, idx: i, layer: l};
+    });
+    layersOut.push(nodes);
+  }
+  return layersOut;
 }
 function dispW(){
   // during update phase, lerp old→new
   if(PHASES[phaseIdx].id==="up"){
-    const nw={}; for(const k in W) nw[k]=oldW[k]-lr*cyc.b["d"+({w1:"w1",w2:"w2",w3:"w3",w4:"w4",b1:"b1",b2:"b2",w5:"w5",w6:"w6",b3:"b3"})[k]];
-    const t=phaseProg; const out={}; for(const k in oldW) out[k]=oldW[k]+(nw[k]-oldW[k])*t; return out;
+    const t = phaseProg;
+    const out = cloneW(oldW);
+    for (let l = 0; l < out.weights.length; l++) {
+      for (let i = 0; i < out.weights[l].length; i++) {
+        for (let j = 0; j < out.weights[l][i].length; j++) {
+          out.weights[l][i][j] = oldW.weights[l][i][j] + (cyc.preview.weights[l][i][j] - oldW.weights[l][i][j]) * t;
+        }
+        out.biases[l][i] = oldW.biases[l][i] + (cyc.preview.biases[l][i] - oldW.biases[l][i]) * t;
+      }
+    }
+    return out;
   }
   return oldW || W;
 }
@@ -220,54 +422,66 @@ function draw(){
   const ctx=cv.getContext("2d");
   const dpr=window.devicePixelRatio||1; cv.width=cv.offsetWidth*dpr; cv.height=cv.offsetHeight*dpr; ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr,dpr);
   const W2=cv.offsetWidth,H2=cv.offsetHeight; ctx.clearRect(0,0,W2,H2);
-  const n=nodes(W2,H2); const Wd=dispW(); const f=cyc.f, b=cyc.b;
+  const n=nodes(W2,H2); const Wd=dispW(); const f=cyc.f;
   const ph=PHASES[phaseIdx].id;
-  const e1=[[0,0,"w1"],[1,0,"w2"],[0,1,"w3"],[1,1,"w4"]]; // [inputIdx,hidIdx,wkey]  (h1 from x1,x2 ; h2 from x1,x2)
-  // careful mapping: h1 uses w1(x1),w2(x2); h2 uses w3(x1),w4(x2)
-  const inH=[{i:0,h:0,w:"w1"},{i:1,h:0,w:"w2"},{i:0,h:1,w:"w3"},{i:1,h:1,w:"w4"}];
-  const hO=[{h:0,w:"w5"},{h:1,w:"w6"}];
+  const sizes = layerSizes();
+  const edgeCount = sizes.length - 1;
+  const fwdPos = Math.min(edgeCount - 1, Math.floor(phaseProg * edgeCount));
+  const fwdT = phaseProg * edgeCount - fwdPos;
+  const revPos = Math.min(edgeCount - 1, Math.floor(phaseProg * edgeCount));
+  const bwdLayer = edgeCount - 1 - revPos;
+  const bwdT = phaseProg * edgeCount - revPos;
 
-  // edges input->hidden
-  inH.forEach(e=>{
-    const A=n.inp[e.i],B=n.hid[e.h],w=Wd[e.w];
-    drawEdge(ctx,A,B,w);
-    if(ph==="f1") flow(ctx,A,B,phaseProg,"#ffd400");
-    if(ph==="b2") flow(ctx,B,A,phaseProg,"#ff3366");
-    // weight label
-    edgeLabel(ctx,A,B,w.toFixed(2), (ph==="up")?"#ffd400":"#7a8290");
-  });
-  // edges hidden->output
-  hO.forEach(e=>{
-    const A=n.hid[e.h],B=n.out[0],w=Wd[e.w];
-    drawEdge(ctx,A,B,w);
-    if(ph==="f2") flow(ctx,A,B,phaseProg,"#ffd400");
-    if(ph==="b1") flow(ctx,B,A,phaseProg,"#ff3366");
-    edgeLabel(ctx,A,B,w.toFixed(2),(ph==="up")?"#ffd400":"#7a8290");
-  });
+  for (let l = 0; l < edgeCount; l++) {
+    const A = n[l];
+    const B = n[l + 1];
+    for (let i = 0; i < B.length; i++) {
+      for (let j = 0; j < A.length; j++) {
+        const w = Wd.weights[l][i][j];
+        drawEdge(ctx, A[j], B[i], w);
+        if (ph === "fwd" && l === fwdPos) flow(ctx, A[j], B[i], fwdT, "#ffd400");
+        if (ph === "bwd" && l === bwdLayer) flow(ctx, B[i], A[j], bwdT, "#ff3366");
+        edgeLabel(ctx, A[j], B[i], w.toFixed(2), (ph === "up") ? "#ffd400" : "#7a8290");
+      }
+    }
+  }
 
-  // node fills
-  const hidFill = ph==="f1"?phaseProg:(["f2","loss","b1","b2","up"].includes(ph)?1:0);
-  const outFill = ph==="f2"?phaseProg:(["loss","b1","b2","up"].includes(ph)?1:0);
-  n.inp.forEach((nd)=>drawNode(ctx,nd,nd.v,1,false,nd.l,nd.v.toFixed(2)));
-  n.hid.forEach((nd,i)=>{const a=i===0?f.ah1:f.ah2; const z=i===0?f.zh1:f.zh2; drawNode(ctx,nd,a,hidFill,(ph==="b2"),nd.l, hidFill>0.5?`a=${a.toFixed(2)}`:"" , hidFill>0.5?`z=${z.toFixed(2)}`:"");});
-  drawNode(ctx,n.out[0],f.yh,outFill,(ph==="b1"||ph==="loss"),"ŷ", outFill>0.5?`ŷ=${f.yh.toFixed(3)}`:"");
+  const fillByLayer = (layerIdx) => {
+    if (ph === "fwd") {
+      if (layerIdx < fwdPos) return 1;
+      if (layerIdx === fwdPos) return fwdT;
+      if (layerIdx === fwdPos + 1) return Math.min(1, fwdT * 0.8);
+      return 0;
+    }
+    if (["loss", "bwd", "up"].includes(ph)) return 1;
+    return 0;
+  };
+
+  n.forEach((layer, li) => {
+    const fill = li === 0 ? 1 : fillByLayer(li);
+    layer.forEach((nd) => {
+      const val = li === 0 ? (nd.idx === 0 ? x1 : x2) : f.a[li][nd.idx];
+      const hot = (ph === "bwd" && (li === bwdLayer + 1 || li === bwdLayer));
+      const line1 = fill > 0.5 ? `a=${val.toFixed(2)}` : "";
+      const line2 = (fill > 0.7 && li > 0) ? `z=${f.z[li - 1][nd.idx].toFixed(2)}` : "";
+      drawNode(ctx, nd, val, fill, hot, nd.l, line1, line2);
+    });
+  });
 
   // target marker near output
   ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono"; ctx.textAlign="center";
-  ctx.fillText("target "+ty.toFixed(2), n.out[0].x, n.out[0].y+46);
-
-  // backward delta annotations
-  if(ph==="b1"){ ctx.fillStyle="#ff3366"; ctx.font="11px JetBrains Mono"; ctx.textAlign="center"; ctx.fillText("δₒ="+f3(b.dO), n.out[0].x, n.out[0].y-44); }
-  if(ph==="b2"){ ctx.fillStyle="#ff3366"; ctx.font="10px JetBrains Mono"; ctx.textAlign="center"; ctx.fillText("δ₁="+f3(b.dH1), n.hid[0].x, n.hid[0].y-40); ctx.fillText("δ₂="+f3(b.dH2), n.hid[1].x, n.hid[1].y+48); }
+  const outNode = n[n.length - 1][0];
+  ctx.fillText("target " + ty.toFixed(2), outNode.x, outNode.y + 46);
   ctx.textAlign="left";
 
   // column captions
   ctx.fillStyle="#5a6271"; ctx.font="10px JetBrains Mono"; ctx.textAlign="center";
-  ctx.fillText("INPUTS", n.inp[0].x, H2-12); ctx.fillText("HIDDEN", n.hid[0].x, H2-12); ctx.fillText("OUTPUT", n.out[0].x, H2-12);
+  ctx.fillText("INPUTS", n[0][0].x, H2-12);
+  ctx.fillText("OUTPUT", outNode.x, H2-12);
   ctx.textAlign="left";
 
   // gauge
-  const yh=f.yh;
+  const yh=f.yhat;
   document.getElementById("gaugeFill").style.width=(yh*100)+"%";
   document.getElementById("gaugeTarget").style.left=(ty*100)+"%";
   document.getElementById("gaugeYhat").textContent=yh.toFixed(3);
@@ -322,9 +536,33 @@ function drawLoss(){
   ctx.fillStyle="#ffd400"; ctx.beginPath(); ctx.arc(W2-2,ly,3,0,7); ctx.fill();
 }
 function renderWtbl(){
-  const Wd=dispW(); const t=document.getElementById("wtbl"); 
-  const rows=[["w₁",Wd.w1],["w₂",Wd.w2],["w₃",Wd.w3],["w₄",Wd.w4],["w₅",Wd.w5],["w₆",Wd.w6],["b₁",Wd.b1],["b₂",Wd.b2],["b₃",Wd.b3]];
-  t.innerHTML = "<tr>"+rows.map((r,i)=>`<td style="color:var(--text-3)">${r[0]}</td><td style="text-align:right;color:${r[1]>=0?'var(--accent)':'var(--magenta)'}">${r[1].toFixed(3)}</td>${i%2===1?'</tr><tr>':''}`).join("")+"</tr>";
+  const Wd = dispW();
+  const sizes = layerSizes();
+  const t = document.getElementById("wtbl");
+  let html = "";
+  let col = 0;
+  const addItem = (label, value) => {
+    if (value === null) {
+      if (col > 0) { html += "</tr>"; col = 0; }
+      html += `<tr><td colspan="4" style="color:var(--text-3);letter-spacing:0.08em;">${label}</td></tr>`;
+      return;
+    }
+    if (col === 0) html += "<tr>";
+    html += `<td style="color:var(--text-3)">${label}</td><td style="text-align:right;color:${value>=0?'var(--accent)':'var(--magenta)'}">${value.toFixed(3)}</td>`;
+    col += 1;
+    if (col === 2) { html += "</tr>"; col = 0; }
+  };
+  for (let l = 0; l < Wd.weights.length; l++) {
+    addItem(`L${l + 1} (${sizes[l]}→${sizes[l + 1]})`, null);
+    for (let i = 0; i < Wd.weights[l].length; i++) {
+      for (let j = 0; j < Wd.weights[l][i].length; j++) {
+        addItem(`w${l + 1}[${i + 1},${j + 1}]`, Wd.weights[l][i][j]);
+      }
+      addItem(`b${l + 1}[${i + 1}]`, Wd.biases[l][i]);
+    }
+  }
+  if (col > 0) html += "</tr>";
+  t.innerHTML = html;
 }
 
 /* ===== synced calc ===== */
@@ -333,37 +571,25 @@ function renderCalc(){
   const c=document.getElementById("calc");
   const eq=(lhs,sub,res,back)=>`<div class="eq"><span class="lhs${back?' back':''}">${lhs}</span> = <span class="sub">${sub}</span> = <span class="res">${res}</span></div>`;
   let html="";
-  if(ph==="f1"){
-    html=eq("z_h1",`w₁·x₁+w₂·x₂+b₁ = ${f3(oldW.w1)}·${f3(x1)}+${f3(oldW.w2)}·${f3(x2)}+${f3(oldW.b1)}`,f4(f.zh1))
-       +eq("a_h1",`σ(z_h1)`,f4(f.ah1))
-       +eq("z_h2",`w₃·x₁+w₄·x₂+b₂`,f4(f.zh2))
-       +eq("a_h2",`σ(z_h2)`,f4(f.ah2))
-       +`<div class="eq note">each hidden neuron = weighted sum of inputs, squashed by sigmoid</div>`;
-  } else if(ph==="f2"){
-    html=eq("z_o",`w₅·a_h1+w₆·a_h2+b₃ = ${f3(oldW.w5)}·${f3(f.ah1)}+${f3(oldW.w6)}·${f3(f.ah2)}+${f3(oldW.b3)}`,f4(f.zo))
-       +eq("ŷ",`σ(z_o)`,f4(f.yh))
-       +`<div class="eq note">ŷ is the prediction — the forward pass is complete</div>`;
+  if(ph==="fwd"){
+    const z0 = f.z[0][0];
+    const a0 = f.a[1][0];
+    html=eq("z₁",`W₁·x + b₁`,f4(z0))
+       +eq("a₁",`${activation}(z₁)`,f4(a0))
+       +eq("ŷ",`σ(z_out)`,f4(f.yhat))
+       +`<div class="eq note">hidden uses ${activation}, output uses sigmoid</div>`;
   } else if(ph==="loss"){
-    html=eq("L",`½(ŷ−y)² = ½(${f3(f.yh)}−${f3(ty)})²`,f4(f.L))
-       +`<div class="eq note">error ŷ−y = ${f4(f.yh-ty)}. We now differentiate L to fix it.</div>`;
-  } else if(ph==="b1"){
-    html=eq("δₒ",`(ŷ−y)·ŷ(1−ŷ) = ${f3(f.yh-ty)}·${f3(f.yh)}·${f3(1-f.yh)}`,f4(b.dO),true)
-       +eq("∂L/∂w₅",`δₒ·a_h1`,f4(b.dw5),true)
-       +eq("∂L/∂w₆",`δₒ·a_h2`,f4(b.dw6),true)
-       +eq("∂L/∂b₃",`δₒ`,f4(b.db3),true);
-  } else if(ph==="b2"){
-    html=eq("δ₁",`δₒ·w₅·a_h1(1−a_h1)`,f4(b.dH1),true)
-       +eq("δ₂",`δₒ·w₆·a_h2(1−a_h2)`,f4(b.dH2),true)
-       +eq("∂L/∂w₁",`δ₁·x₁`,f4(b.dw1),true)
-       +eq("∂L/∂w₂",`δ₁·x₂`,f4(b.dw2),true)
-       +eq("∂L/∂w₃",`δ₂·x₁`,f4(b.dw3),true)
-       +eq("∂L/∂w₄",`δ₂·x₂`,f4(b.dw4),true);
+    html=eq("L",`${lossType}(ŷ,y)`,f4(f.L))
+       +`<div class="eq note">loss ${lossType} · error ${f4(f.yhat-ty)}</div>`;
+  } else if(ph==="bwd"){
+    const d0 = b.deltas[b.deltas.length - 1][0];
+    const d1 = b.deltas[0][0];
+    html=eq("δ_out",`∂L/∂z_out`,f4(d0),true)
+       +eq("δ_h1",`backprop to layer 1`,f4(d1),true)
+       +`<div class="eq note">gradients flow output → input</div>`;
   } else {
-    html=`<div class="eq note">rule: w ← w − η·∂L/∂w &nbsp;(η=${f3(lr)})</div>`
-       +eq("w₅′",`${f3(oldW.w5)} − ${f3(lr)}·${f3(b.dw5)}`,f4(oldW.w5-lr*b.dw5),true)
-       +eq("w₁′",`${f3(oldW.w1)} − ${f3(lr)}·${f3(b.dw1)}`,f4(oldW.w1-lr*b.dw1),true)
-       +eq("b₃′",`${f3(oldW.b3)} − ${f3(lr)}·${f3(b.db3)}`,f4(oldW.b3-lr*b.db3),true)
-       +`<div class="eq note">weights nudged against the gradient → next ŷ is closer to y</div>`;
+    html=`<div class="eq note">optimizer: ${optimizer} · rule: w ← w − η·∂L/∂w (η=${f3(lr)})</div>`
+       +`<div class="eq note">weights update using ${optimizer}${optimizer==="adamw"?" + weight decay":""}</div>`;
   }
   c.innerHTML=html;
   // phase header
@@ -399,13 +625,53 @@ document.getElementById("stepBtn").addEventListener("click",()=>{
   else phaseIdx++;
   renderCalc();
 });
-document.getElementById("resetBtn").addEventListener("click",()=>{initW();stepN=0;lossHist=[];phaseIdx=0;phaseProg=0;startCycle();renderCalc();});
-document.getElementById("randW").addEventListener("click",()=>{initW();stepN=0;lossHist=[];phaseIdx=0;phaseProg=0;startCycle();renderCalc();});
+function resetAll(){
+  initW();
+  stepN=0; lossHist=[]; phaseIdx=0; phaseProg=0; startCycle(); renderCalc();
+}
+document.getElementById("resetBtn").addEventListener("click",resetAll);
+document.getElementById("randW").addEventListener("click",resetAll);
 document.getElementById("speed").addEventListener("input",e=>{speed=+e.target.value;document.getElementById("speedV").textContent=speed.toFixed(1)+"×";});
 document.getElementById("lr").addEventListener("input",e=>{lr=+e.target.value;document.getElementById("lrV").textContent=lr.toFixed(1);renderCalc();});
 [["x1","x1V",v=>x1=v],["x2","x2V",v=>x2=v],["ty","tyV",v=>ty=v]].forEach(([id,vid,set])=>{
   document.getElementById(id).addEventListener("input",e=>{set(+e.target.value);document.getElementById(vid).textContent=(+e.target.value).toFixed(2);startCycle();renderCalc();});
 });
+document.getElementById("hl").addEventListener("input",e=>{
+  hiddenLayers = +e.target.value;
+  document.getElementById("hlV").textContent=hiddenLayers;
+  resetAll();
+});
+document.getElementById("hn").addEventListener("input",e=>{
+  neuronsPerLayer = +e.target.value;
+  document.getElementById("hnV").textContent=neuronsPerLayer;
+  resetAll();
+});
+document.getElementById("act").addEventListener("change",e=>{
+  activation = e.target.value;
+  document.getElementById("actV").textContent=activation;
+  updateNetMeta();
+  startCycle(); renderCalc();
+});
+document.getElementById("loss").addEventListener("change",e=>{
+  lossType = e.target.value;
+  document.getElementById("lossV").textContent=lossType;
+  updateNetMeta();
+  startCycle(); renderCalc();
+});
+document.getElementById("opt").addEventListener("change",e=>{
+  optimizer = e.target.value;
+  document.getElementById("optV").textContent=optimizer;
+  initOptState();
+  updateNetMeta();
+  startCycle();
+  renderCalc();
+});
+
+function updateNetMeta(){
+  const sizes = layerSizes();
+  const arch = sizes.join(" → ");
+  document.getElementById("netMeta").textContent = `${arch} · ${activation} · ${lossType} · ${optimizer}`;
+}
 
 /* init */
 buildRail(); initW(); startCycle(); renderCalc();
